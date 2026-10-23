@@ -10,8 +10,11 @@
 // local y exige la clave aleatoria. Escribe su estado en stdout como líneas JSON.
 //
 // Protocolo (cada paquete): [u32 largo, big endian][u8 tipo][datos]   (largo = 1 + datos)
-//   tablet → Mac   0 hola (la clave, texto)        10 toque (JSON)
-//   Mac → tablet   0 bienvenida ("ancho alto")     1 SPS+PPS (Annex B)   2 cuadro   3 cuadro clave
+//   tablet → Mac   0 hola (la clave, texto)   11 ajuste ("ancho alto fps": lo máximo que decodifica)   10 toque (JSON)
+//   Mac → tablet   0 bienvenida ("ancho alto nitidez|fluidez")   1 SPS+PPS (Annex B)   2 cuadro   3 cuadro clave
+//
+// Cada tablet tiene un tope de decodificación (p. ej. MediaTek: 2560×1440, menos cuadros a más tamaño):
+// el Mac propone su tamaño, la tablet responde el mayor que puede mostrar y el Mac se ajusta a eso.
 import AppKit
 import Network
 import ScreenCaptureKit
@@ -36,9 +39,14 @@ let porWifi = op["red"] == "wifi"
 let anchoTablet = Int(op["ancho"]!) ?? 2560, altoTablet = Int(op["alto"]!) ?? 1600
 let puerto = UInt16(op["puerto"]!) ?? 8730
 // escala de la imagen y megabits por segundo de cada nivel (por cable USB 2.0 caben unos 280)
-let niveles: [String: (Double, Int)] = ["fluida": (0.5, 6), "media": (0.75, 14), "nitida": (1.0, 28)]
-let (escala, mbps) = niveles[op["calidad"]!] ?? niveles["media"]!
-let fps = 60
+let niveles: [String: (Double, Int)] = ["fluida": (0.5, 8), "media": (0.75, 16), "nitida": (1.0, 30), "maxima": (1.0, 50)]
+let (escala, mbps) = niveles[op["calidad"] ?? ""] ?? niveles["nitida"]!
+// tamaño de lo que se ve en la pantalla extra: puntos de macOS por píxel de la tablet
+//   grande = 1280×800 puntos en una tablet de 2560×1600 · medio = 1600×1000 · maximo = 2560×1600 (letra pequeña)
+let espacio = op["espacio"] ?? "grande"
+var fps = 60
+// con «nítida» y «máxima» manda el tamaño; con «fluida» y «equilibrada», los 60 cuadros por segundo
+let preferencia = (op["calidad"] == "fluida" || op["calidad"] == "media") ? "fluidez" : "nitidez"
 let clave = porWifi ? (0..<16).map { _ in String("abcdefghjkmnpqrstuvwxyz23456789".randomElement()!) }.joined() : ""
 
 /* ---------- permisos ---------- */
@@ -57,8 +65,12 @@ if modoExtra {
     let d = CGVirtualDisplayDescriptor()
     d.queue = DispatchQueue.main
     d.name = "Tablet (ScreenMT)"
-    d.maxPixelsWide = UInt32(anchoTablet)
-    d.maxPixelsHigh = UInt32(altoTablet)
+    // siempre en modo Retina (macOS ignora los modos sin Retina en pantallas virtuales y baja a la mitad);
+    // con más puntos que píxeles de la tablet, la imagen se reduce al grabarla
+    let (pw, ph, retina): (Int, Int, Bool) = espacio == "maximo" ? (anchoTablet, altoTablet, true)
+        : espacio == "medio" ? (anchoTablet * 5 / 8, altoTablet * 5 / 8, true) : (anchoTablet / 2, altoTablet / 2, true)
+    d.maxPixelsWide = UInt32(retina ? pw * 2 : pw)
+    d.maxPixelsHigh = UInt32(retina ? ph * 2 : ph)
     d.sizeInMillimeters = CGSize(width: 250, height: 156)  // ~11 pulgadas, solo afecta cómo la nombra macOS
     d.productID = 0x5354
     d.vendorID = 0x4D54
@@ -66,8 +78,8 @@ if modoExtra {
     d.terminationHandler = { _, _ in }
     guard let v = CGVirtualDisplay(descriptor: d) else { morir("macOS no dejó crear la pantalla extra. Prueba el modo «copia».") }
     let s = CGVirtualDisplaySettings()
-    s.hiDPI = 1  // nítida como un Mac Retina: la tablet tiene el doble de píxeles que de puntos
-    s.modes = [CGVirtualDisplayMode(width: UInt(anchoTablet / 2), height: UInt(altoTablet / 2), refreshRate: 60)]
+    s.hiDPI = retina ? 1 : 0
+    s.modes = [CGVirtualDisplayMode(width: UInt(pw), height: UInt(ph), refreshRate: 60)]
     if !v.apply(s) { morir("macOS no dejó crear la pantalla extra. Prueba el modo «copia».") }
     virtual = v
     idPantalla = v.displayID
@@ -79,7 +91,24 @@ var tablet: NWConnection?
 var pendientes = 0        // paquetes saliendo: mientras haya, el siguiente cuadro se salta en vez de amontonarse
 var pedirClave = true     // el próximo cuadro debe ser completo (al conectar o tras saltarse uno)
 var ancho = 0, alto = 0
+var configGrabacion: SCStreamConfiguration?
 
+// la tablet dijo hasta dónde llega: se rehace el compresor y se cambia el tamaño de la grabación
+func ajustar(_ w: Int, _ h: Int, _ f: Int) {
+    let w = min(w, ancho) & ~1, h = min(h, alto) & ~1, f = max(10, min(60, f))
+    guard w >= 64, h >= 64 else { return }
+    if w != ancho || h != alto || f != fps, let c = configGrabacion {
+        ancho = w; alto = h; fps = f
+        if let s = sesion { VTCompressionSessionInvalidate(s) }
+        crearCompresor(w, h)
+        c.width = w
+        c.height = h
+        c.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(f))
+        stream?.updateConfiguration(c) { _ in }
+        ultimoPx = nil  // el último cuadro guardado es del tamaño viejo
+    }
+    decir(["ajuste": true, "ancho": ancho, "alto": alto, "fps": fps])
+}
 func paquete(_ tipo: UInt8, _ datos: Data) -> Data {
     var largo = UInt32(datos.count + 1).bigEndian
     var p = Data(bytes: &largo, count: 4)
@@ -211,6 +240,7 @@ func empezarGrabacion(intento: Int = 0) {
         alto = Int(Double(pxAlto) * tope * escala) & ~1
         crearCompresor(ancho, alto)
         let c = SCStreamConfiguration()
+        configGrabacion = c
         c.width = ancho
         c.height = alto
         c.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps))
@@ -303,15 +333,20 @@ servidor.newConnectionHandler = { c in
     c.start(queue: cola)
     leerPaquete(c) { tipo, datos in
         guard tipo == 0, String(data: datos, encoding: .utf8) == clave else { c.cancel(); return }
-        tablet?.cancel()
-        tablet = c
-        pendientes = 0
-        pedirClave = true
-        c.send(content: paquete(0, Data("\(ancho) \(alto)".utf8)), completion: .contentProcessed { _ in })
-        recomprimir()
+        // la tablet recibe cuadros solo después de decir su tope (paquete 11)
+        c.send(content: paquete(0, Data("\(ancho) \(alto) \(preferencia)".utf8)), completion: .contentProcessed { _ in })
         func seguir() {
             leerPaquete(c) { tipo, datos in
                 if tipo == 10, let j = try? JSONSerialization.jsonObject(with: datos) as? [String: Any] { DispatchQueue.main.async { evento(j) } }
+                if tipo == 11 {
+                    let n = (String(data: datos, encoding: .utf8) ?? "").split(separator: " ").compactMap { Int($0) }
+                    if n.count == 3 { ajustar(n[0], n[1], n[2]) }
+                    if tablet !== c { tablet?.cancel() }
+                    tablet = c
+                    pendientes = 0
+                    pedirClave = true
+                    recomprimir()
+                }
                 seguir()
             }
         }

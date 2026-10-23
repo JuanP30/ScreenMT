@@ -226,7 +226,7 @@ fn escuchar_archivos() {
 const PUERTO: u16 = 8730;
 // la app de la tablet (carpeta android/); subir APP_VERSION junto con versionCode para que se actualice sola
 const APP_TABLET: &str = "io.github.juanp30.screenmt";
-const APP_VERSION: u32 = 2;
+const APP_VERSION: u32 = 4;
 
 fn recurso(nombre: &str) -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("../Resources").join(nombre))).unwrap_or_default()
@@ -247,8 +247,10 @@ struct Pantalla {
     url: String,
     cable: bool,
     error: Option<serde_json::Value>,
+    // lo que la tablet aceptó mostrar: {"ancho","alto","fps"}
+    info: Option<serde_json::Value>,
 }
-static PANTALLA: Mutex<Pantalla> = Mutex::new(Pantalla { hijo: None, url: String::new(), cable: false, error: None });
+static PANTALLA: Mutex<Pantalla> = Mutex::new(Pantalla { hijo: None, url: String::new(), cable: false, error: None, info: None });
 
 fn ayudante() -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("screenmt-pantalla"))).unwrap_or_default()
@@ -274,10 +276,11 @@ fn apagar_todo(p: &mut Pantalla) {
     }
     p.url.clear();
     p.cable = false;
+    p.info = None;
 }
 
 #[tauri::command]
-async fn pantalla_encender(cable: bool, extra: bool, calidad: String) -> Result<serde_json::Value, serde_json::Value> {
+async fn pantalla_encender(cable: bool, extra: bool, calidad: String, espacio: String) -> Result<serde_json::Value, serde_json::Value> {
     use std::io::{BufRead, BufReader};
     let falla = |m: &str| serde_json::json!({ "error": m, "codigo": "error" });
     apagar_todo(&mut PANTALLA.lock().unwrap());
@@ -287,7 +290,7 @@ async fn pantalla_encender(cable: bool, extra: bool, calidad: String) -> Result<
     }
     let (ancho, alto) = if conectada { tamano_tablet() } else { (2560, 1600) };
     let mut hijo = Command::new(ayudante())
-        .args(["--modo", if extra { "extra" } else { "copia" }, "--red", if cable { "cable" } else { "wifi" }, "--calidad", &calidad])
+        .args(["--modo", if extra { "extra" } else { "copia" }, "--red", if cable { "cable" } else { "wifi" }, "--calidad", &calidad, "--espacio", &espacio])
         .args(["--ancho", &ancho.to_string(), "--alto", &alto.to_string(), "--puerto", &PUERTO.to_string()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -323,6 +326,7 @@ async fn pantalla_encender(cable: bool, extra: bool, calidad: String) -> Result<
         for l in lineas.map_while(Result::ok) {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&l) {
                 if v.get("error").is_some() { PANTALLA.lock().unwrap().error = Some(v); }
+                else if v.get("ajuste").is_some() { PANTALLA.lock().unwrap().info = Some(v); }
             }
         }
     });
@@ -344,7 +348,7 @@ fn pantalla_estado() -> serde_json::Value {
     let mut p = PANTALLA.lock().unwrap();
     let viva = p.hijo.as_mut().map(|h| matches!(h.try_wait(), Ok(None))).unwrap_or(false);
     if !viva && p.hijo.is_some() { apagar_todo(&mut p); }
-    serde_json::json!({ "activa": viva, "url": p.url, "error": p.error })
+    serde_json::json!({ "activa": viva, "url": p.url, "error": p.error, "info": p.info })
 }
 
 #[tauri::command]

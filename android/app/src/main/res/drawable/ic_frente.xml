@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- dibujo del ícono (monitor + tablet), dentro de la zona segura de 66 dp del ícono adaptativo -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.95" android:scaleY="0.95" android:translateX="23.6" android:translateY="21.7">
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:fillColor="#00000000"
+            android:pathData="M14,16h24a3,3 0 0 1 3,3v15a3,3 0 0 1 -3,3h-24a3,3 0 0 1 -3,-3v-15a3,3 0 0 1 3,-3z" />
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M20,44h12" />
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:fillColor="#FF1B2A55"
+            android:pathData="M37.5,27h12a3.5,3.5 0 0 1 3.5,3.5v18a3.5,3.5 0 0 1 -3.5,3.5h-12a3.5,3.5 0 0 1 -3.5,-3.5v-18a3.5,3.5 0 0 1 3.5,-3.5z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M41.9,47a1.6,1.6 0 1 0 3.2,0a1.6,1.6 0 1 0 -3.2,0z" />
+    </group>
+</vector>

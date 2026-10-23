@@ -98,15 +98,21 @@ footer:empty{display:none}
 .fila.qr .cod svg{width:112px;height:112px}
 .fila code{display:block;margin-top:6px;font:12px ui-monospace,Menlo,monospace;word-break:break-all;-webkit-user-select:text;user-select:text;color:var(--tx)}
 
-/* ventana ancha (4:3 o más): dos columnas */
+/* ventana ancha (4:3 o más): cada caja a todo el ancho; lado a lado solo lo que mide igual */
 @media (min-width:760px){
-  main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;align-items:start;max-width:1280px;width:100%;margin:0 auto}
-  main.t-archivos{grid-template-columns:minmax(260px,360px) minmax(0,1fr);grid-template-rows:auto auto 1fr;align-items:stretch;align-content:stretch}
+  main{max-width:1280px;width:100%;margin:0 auto}
+  main.t-pantalla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;align-items:stretch}
+  main.t-pantalla>.ancha,main.t-pantalla>.mal,main.t-pantalla>.nota{grid-column:1 / -1}
+  main.t-archivos{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);grid-template-rows:auto auto 1fr;align-items:stretch;align-content:stretch}
   main.t-archivos .soltar{grid-column:1;grid-row:1;padding:48px 20px}
   main.t-archivos .desde{grid-column:1;grid-row:2;align-self:start}
   main.t-archivos .caja.crece{grid-column:2;grid-row:1 / span 3;min-height:0}
-  main .caja.mal,.nota{grid-column:1 / -1}
-  .estado,nav{max-width:1256px;width:calc(100% - 24px);margin-left:auto;margin-right:auto}
-  footer{justify-content:flex-end}footer .btn{flex:0 1 280px}
+  /* filas de dos en dos dentro de la caja (atajos, gestos) */
+  .cuadricula{display:grid;grid-template-columns:1fr 1fr}
+  .cuadricula h3{grid-column:1 / -1}
+  .cuadricula .fila:nth-of-type(odd){border-right:1px solid var(--ln)}
+  .estado,nav,footer>*{max-width:1256px}
+  .estado,nav{width:calc(100% - 24px);margin-left:auto;margin-right:auto}
 }
+.explica{color:var(--tx2);font-size:12.5px;padding:0 14px 12px;margin-top:-4px}
 .desde .n b{white-space:normal}

@@ -8,7 +8,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 // ajustes: comodidad de este Mac, nada importante se guarda aquí
 const AJ = Object.assign(
-  { tamano: 1400, apagar: false, sinSonido: false, destino: '', ancho: 440, cable: true, extra: true, calidad: 'media' },
+  { tamano: 1400, apagar: false, sinSonido: false, destino: '', ancho: 440, cable: true, extra: true, calidad: 'nitida', espacio: 'grande' },
   leer()
 );
 function leer() { try { return JSON.parse(localStorage.getItem('screenmt') || '{}'); } catch { return {}; } }
@@ -105,14 +105,14 @@ const radio = (clave, valor, titulo, sub) =>
 
 function vVer() {
   return `
-  <div class="caja"><h3>Calidad de la imagen</h3>
+  <div class="caja ancha"><h3>Calidad de la imagen</h3>
     ${elige('tamano', [[1024, 'Liviana'], [1400, 'Normal'], [1920, 'Nítida']])}
   </div>
-  <div class="caja"><h3>Mientras la manejas</h3>
+  <div class="caja ancha"><h3>Mientras la manejas</h3>
     ${sw('apagar', 'Apagar la pantalla de la tablet', 'Se sigue viendo en el Mac y ahorra batería')}
     ${sw('sinSonido', 'Sin el sonido de la tablet', 'Por defecto el sonido sale por el Mac')}
   </div>
-  <div class="caja"><h3>Atajos en la ventana de la tablet</h3>
+  <div class="caja ancha cuadricula"><h3>Atajos en la ventana de la tablet</h3>
     <div class="fila"><div class="n"><b>Arrastrar un archivo encima</b><small>Llega a Descargas de la tablet · un .apk se instala</small></div></div>
     <div class="fila"><div class="n"><b>⌘C y ⌘V</b><small>Copias en un lado y pegas en el otro</small></div></div>
     <div class="fila"><div class="n"><b>Clic derecho</b><small>Atrás</small></div></div>
@@ -150,22 +150,22 @@ function vPantalla() {
     let qr = '';
     if (wifi && P.url && window.qrcode) { const q = qrcode(0, 'M'); q.addData(P.url); q.make(); qr = q.createSvgTag(4, 0); }
     return `
-    <div class="caja"><h3>Encendida</h3>
+    <div class="caja ancha"><h3>Encendida</h3>
       <div class="fila"><span class="punto ok"></span><div class="n"><b>La tablet está mostrando tu Mac</b>
-        <small>${AJ.extra ? 'Como pantalla extra' : 'Copia de la pantalla principal'} · ${wifi ? 'por wifi' : 'por cable'}</small></div></div>
+        <small>${AJ.extra ? 'Como pantalla extra' : 'Copia de la pantalla principal'} · ${wifi ? 'por wifi' : 'por cable'}${P.info ? ` · ${P.info.ancho} × ${P.info.alto} a ${P.info.fps} cuadros/s` : ''}</small></div></div>
       ${wifi ? `<div class="fila qr"><div class="cod">${qr}</div><div class="n"><b>Escanea el código con la cámara de la tablet</b>
         <small>Se abre la app ScreenMT de la tablet y se conecta sola. Si no la tienes, instálala en Ajustes (por cable, una vez).</small></div></div>` : ''}
     </div>
-    ${P.control === false ? `<div class="caja"><h3>Manejar el Mac desde la tablet</h3>
+    ${P.control === false ? `<div class="caja ancha"><h3>Manejar el Mac desde la tablet</h3>
       <button class="fila" data-a="permiso" data-p="control"><div class="n"><b>Falta el permiso de Accesibilidad</b>
         <small>Actívalo para ScreenMT y vuelve a encender. Mientras tanto la tablet solo muestra.</small></div><span class="flecha">›</span></button></div>` : ''}
-    <div class="caja"><h3>En la tablet</h3>
+    <div class="caja ancha cuadricula"><h3>En la tablet</h3>
       <div class="fila"><div class="n"><b>Tocar</b><small>Clic</small></div></div>
       <div class="fila"><div class="n"><b>Tocar y mover</b><small>Arrastrar</small></div></div>
       <div class="fila"><div class="n"><b>Dejar el dedo quieto</b><small>Clic derecho</small></div></div>
       <div class="fila"><div class="n"><b>Dos dedos</b><small>Desplazar</small></div></div>
     </div>
-    ${AJ.extra ? `<button class="caja fila sola" data-a="permiso" data-p="pantallas"><div class="n"><b>Ordenar las pantallas</b>
+    ${AJ.extra ? `<button class="caja fila sola ancha" data-a="permiso" data-p="pantallas"><div class="n"><b>Ordenar las pantallas</b>
       <small>Dile al Mac si la tablet queda a la izquierda o a la derecha de tu monitor</small></div><span class="flecha">›</span></button>` : ''}`;
   }
   const err = V.pantErr;
@@ -183,25 +183,39 @@ function vPantalla() {
     ${radio('extra', true, 'Una pantalla extra', 'Arrastras ventanas del Mac hacia la tablet')}
     ${radio('extra', false, 'Copia de esta pantalla', 'Lo mismo que ves en tu pantalla principal')}
   </div>
-  <div class="caja"><h3>Calidad</h3>
-    ${elige('calidad', [['fluida', 'Fluida'], ['media', 'Equilibrada'], ['nitida', 'Nítida']])}
-  </div>`;
+  <div class="caja ancha"><h3>Calidad</h3>
+    ${elige('calidad', [['fluida', 'Fluida'], ['media', 'Equilibrada'], ['nitida', 'Nítida'], ['maxima', 'Máxima']])}
+    <p class="explica">${{
+      fluida: 'La mitad del tamaño, 60 cuadros por segundo. Para wifi o equipos lentos.',
+      media: 'Algo menos nítida, siempre a 60 cuadros por segundo: lo más suave.',
+      nitida: 'El tamaño más grande que acepta tu tablet. Puede bajar a unos 30 cuadros por segundo.',
+      maxima: 'Como Nítida, con el doble de datos: casi sin compresión visible. Mejor por cable.',
+    }[AJ.calidad] || ''}</p>
+  </div>
+  ${AJ.extra ? `<div class="caja ancha"><h3>Tamaño de lo que ves en la tablet</h3>
+    ${elige('espacio', [['grande', 'Grande'], ['medio', 'Mediano'], ['maximo', 'Más espacio']])}
+    <p class="explica">${{
+      grande: 'Como un Mac Retina: letras y botones grandes, cómodos para tocar.',
+      medio: 'Un punto intermedio: caben más cosas sin que la letra quede muy pequeña.',
+      maximo: 'Un punto por cada píxel: cabe mucho más, con letra pequeña.',
+    }[AJ.espacio] || ''}</p>
+  </div>` : ''}`;
 }
 
 function vAjustes() {
   return `
-  <div class="caja"><h3>Archivos que traes de la tablet</h3>
+  <div class="caja ancha"><h3>Archivos que traes de la tablet</h3>
     <button class="fila" data-a="destino"><div class="n"><b>${esc(AJ.destino || 'Descargas › Desde la tablet')}</b><small>Toca para cambiar la carpeta</small></div></button>
   </div>
-  <div class="caja"><h3>App ScreenMT en la tablet</h3>
+  <div class="caja ancha"><h3>App ScreenMT en la tablet</h3>
     <button class="fila" data-a="instalar"><div class="n"><b>${V.instalando ? 'Instalando…' : 'Instalar o actualizar por cable'}</b>
       <small>Se instala sola al encender la segunda pantalla por cable. Para usar solo wifi, instálala una vez aquí.</small></div><span class="flecha">›</span></button>
   </div>
-  <div class="caja"><h3>Ancho al pegarla a un lado</h3>
+  <div class="caja ancha"><h3>Ancho al pegarla a un lado</h3>
     ${elige('ancho', [[380, 'Angosta'], [440, 'Normal'], [560, 'Ancha']])}
   </div>
-  <div class="caja"><h3>Acerca de</h3>
-    <div class="fila"><div class="n"><b>ScreenMT 0.1.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
+  <div class="caja ancha"><h3>Acerca de</h3>
+    <div class="fila"><div class="n"><b>ScreenMT 0.3.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
   </div>`;
 }
 
@@ -291,7 +305,7 @@ document.addEventListener('click', async (ev) => {
   else if (a === 'pant-encender') {
     V.encendiendo = true; V.pantErr = null; pintar(false);
     try {
-      const r = await invoke('pantalla_encender', { cable: AJ.cable, extra: AJ.extra, calidad: AJ.calidad });
+      const r = await invoke('pantalla_encender', { cable: AJ.cable, extra: AJ.extra, calidad: AJ.calidad, espacio: AJ.espacio });
       V.pant = { activa: true, url: r.url, control: r.control };
       aviso(AJ.cable ? 'Listo: mira la tablet.' : 'Listo: abre la dirección en la tablet.');
     } catch (e) { V.pantErr = e; }

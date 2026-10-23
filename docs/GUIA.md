@@ -119,7 +119,17 @@ Aquí la tablet **muestra el Mac**. Es lo contrario de *Ver tablet*. La imagen v
 - **Qué muestra la tablet:**
   - **Una pantalla extra:** el Mac cree que conectaste otro monitor. Arrastras ventanas hacia la tablet como a cualquier pantalla.
   - **Copia de esta pantalla:** la tablet muestra lo mismo que tu pantalla principal.
-- **Calidad:** *Fluida* (6 Mb/s, ideal por wifi), *Equilibrada* (14 Mb/s) o *Nítida* (28 Mb/s, la imagen completa de la tablet). Todas van a 60 cuadros por segundo.
+- **Calidad:**
+
+  | Calidad | Qué hace | Ideal para |
+  |---|---|---|
+  | *Fluida* | La mitad del tamaño, 60 cuadros por segundo, 8 Mb/s | Wifi o equipos lentos |
+  | *Equilibrada* | Algo menos nítida, siempre a 60 cuadros por segundo, 16 Mb/s | Lo más suave: videos, mover ventanas |
+  | *Nítida* (por defecto) | El tamaño más grande que acepta tu tablet, 30 Mb/s | Leer, trabajar |
+  | *Máxima* | Como Nítida con 50 Mb/s: casi sin compresión visible | Por cable, cuando quieres la mejor imagen |
+
+  Cada tablet tiene un **tope de video** en su chip. La app de la tablet se lo dice al Mac y el Mac se ajusta solo. Por ejemplo, una Lenovo Idea Tab (chip MediaTek) muestra hasta 2304 × 1440 a 35 cuadros por segundo con *Nítida*, o 1804 × 1128 a 60 con *Equilibrada*. Lo que logra tu tablet aparece en ScreenMT al encender.
+- **Tamaño de lo que ves** (solo en *pantalla extra*): *Grande* (como un Mac Retina, cómodo para tocar), *Mediano* o *Más espacio* (caben muchas más cosas, con letra pequeña).
 
 ### Encender
 Toca **«Encender segunda pantalla»**.

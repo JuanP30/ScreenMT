@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Build;
@@ -147,18 +148,22 @@ public class Principal extends Activity {
         in.readFully(hola);
         if (tipo != 0) throw new IllegalStateException("respuesta rara");
         String[] wh = new String(hola, StandardCharsets.UTF_8).trim().split(" ");
-        ancho = Integer.parseInt(wh[0]);
-        alto = Integer.parseInt(wh[1]);
+        boolean nitidez = wh.length < 3 || "nitidez".equals(wh[2]);
+        MediaCodec dec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
+        // lo máximo que este decodificador puede mostrar con la forma de la pantalla del Mac
+        int[] t = tope(dec, Integer.parseInt(wh[0]), Integer.parseInt(wh[1]), nitidez);
+        ancho = t[0];
+        alto = t[1];
+        mandar(11, (t[0] + " " + t[1] + " " + t[2]).getBytes(StandardCharsets.UTF_8));
         s.setSoTimeout(0); // con la pantalla quieta pueden pasar ratos sin cuadros
 
         superficie = new CountDownLatch(1);
         ui.post(this::mostrarVideo);
-        if (!superficie.await(3, TimeUnit.SECONDS)) throw new IllegalStateException("sin superficie");
+        if (!superficie.await(3, TimeUnit.SECONDS)) { dec.release(); throw new IllegalStateException("sin superficie"); }
 
         MediaFormat f = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, ancho, alto);
         if (Build.VERSION.SDK_INT >= 30) f.setInteger(MediaFormat.KEY_LOW_LATENCY, 1);
         f.setInteger(MediaFormat.KEY_PRIORITY, 0); // tiempo real
-        MediaCodec dec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
         dec.configure(f, video.getHolder().getSurface(), null, 0);
         dec.start();
         Thread pintor = new Thread(() -> pintar(dec), "pintor");
@@ -184,6 +189,34 @@ public class Principal extends Activity {
             try { dec.stop(); } catch (Exception ignorada) { }
             dec.release();
         }
+    }
+
+    /**
+     * El tamaño más grande (misma forma que la pantalla del Mac) y los cuadros por segundo que el
+     * decodificador de esta tablet acepta. «nitidez»: el mayor tamaño aunque baje a 30 cuadros;
+     * si no, 60 cuadros con el tamaño que dé. Devuelve {ancho, alto, fps}.
+     */
+    private static int[] tope(MediaCodec dec, int w, int h, boolean nitidez) {
+        MediaCodecInfo.VideoCapabilities c;
+        try {
+            c = dec.getCodecInfo().getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).getVideoCapabilities();
+        } catch (Exception e) {
+            return new int[] {w, h, 60};
+        }
+        int aw = Math.max(2, c.getWidthAlignment()), ah = Math.max(2, c.getHeightAlignment());
+        int[] cuadros = nitidez ? new int[] {30} : new int[] {60, 30};
+        for (int fps : cuadros) {
+            for (int pct = 100; pct >= 30; pct -= 2) {
+                int x = (w * pct / 100) / aw * aw, y = (h * pct / 100) / ah * ah;
+                if (c.isSizeSupported(x, y) && c.areSizeAndRateSupported(x, y, fps)) {
+                    // con el tamaño elegido, los cuadros más altos que aguante
+                    int mejor = fps;
+                    for (int f = 60; f > fps; f -= 5) if (c.areSizeAndRateSupported(x, y, f)) { mejor = f; break; }
+                    return new int[] {x, y, mejor};
+                }
+            }
+        }
+        return new int[] {Math.min(w, 1920) / 2 * 2, Math.min(h, 1080) / 2 * 2, 30};
     }
 
     // saca cada cuadro apenas está listo: nada de esperar al «tiempo de presentación»
