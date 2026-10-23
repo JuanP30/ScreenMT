@@ -1,0 +1,112 @@
+/* ScreenMT — ventana angosta para un lado de la pantalla. Filas dentro de una caja, un solo botón oscuro por pantalla. */
+:root{
+  --fondo:#f3f4f6;--caja:#fff;--tx:#151a23;--tx2:#5f6775;--ln:#e3e6eb;--hover:#f2f4f7;
+  --acento:#2357d9;--acento-suave:#e8eefc;--pri:#151a23;--pri-tx:#fff;--ok:#1d9a6c;--mal:#d14343;--suave:cubic-bezier(.2,.8,.2,1)
+}
+@media (prefers-color-scheme:dark){:root{
+  --fondo:#17191d;--caja:#202328;--tx:#eef0f3;--tx2:#9aa1ad;--ln:#2e3238;--hover:#272a30;
+  --acento:#7aa2ff;--acento-suave:#26324d;--pri:#eef0f3;--pri-tx:#151a23
+}}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--fondo);color:var(--tx);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
+  display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+/* cabecera: espacio a la izquierda para los botones de la ventana de macOS */
+header{display:flex;align-items:center;gap:10px;height:52px;padding:0 12px 0 84px;flex:none}
+.logo{width:24px;height:24px}
+header b{font-size:15px;letter-spacing:.01em}
+.lados{margin-left:auto;display:flex;gap:4px}
+.lados button{width:32px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--tx2);transition:background .15s}
+.lados button:hover{background:var(--hover);color:var(--tx)}
+.lados svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.4}.lados .lleno{fill:currentColor;stroke:none;opacity:.55}
+
+.estado{display:flex;align-items:center;gap:12px;margin:0 12px;padding:12px 14px;background:var(--caja);border:1px solid var(--ln);border-radius:10px;flex:none}
+.estado b{display:block}.estado small{display:block;color:var(--tx2);font-size:12.5px}
+.estado .der{margin-left:auto;text-align:right;color:var(--tx2);font-size:12.5px;white-space:nowrap}
+.punto{width:9px;height:9px;border-radius:50%;background:var(--tx2);flex:none}
+.punto.ok{background:var(--ok);box-shadow:0 0 0 4px rgba(29,154,108,.16)}
+.punto.mal{background:var(--mal);box-shadow:0 0 0 4px rgba(209,67,67,.14)}
+
+nav{display:flex;margin:12px 12px 0;border-bottom:1px solid var(--ln);flex:none}
+nav button{flex:1;padding:10px 0;font-weight:600;color:var(--tx2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s}
+nav button:hover{color:var(--tx)}
+nav button.on{color:var(--acento);border-color:var(--acento)}
+
+main{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+main.entra{animation:entra .22s var(--suave)}
+@keyframes entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+main::-webkit-scrollbar{width:8px}main::-webkit-scrollbar-thumb{background:var(--ln);border-radius:4px}
+
+.caja{background:var(--caja);border:1px solid var(--ln);border-radius:10px;overflow:hidden;flex:none}
+.caja.crece{flex:1;display:flex;flex-direction:column;min-height:200px}
+.caja h3{font-size:11.5px;font-weight:700;color:var(--tx2);letter-spacing:.05em;text-transform:uppercase;padding:10px 14px;display:flex;gap:8px;align-items:center}
+.caja h3 .der{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600}
+.caja h3 .der button{color:var(--acento)}
+.fila{display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border-top:1px solid var(--ln);text-align:left;transition:background .12s}
+button.fila:hover,label.fila:hover{background:var(--hover)}
+label.fila{cursor:pointer}
+.fila .n{flex:1;min-width:0}.fila .n b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fila small{display:block;color:var(--tx2);font-size:12.5px}
+.lista{overflow:auto;flex:1}
+
+/* casillas y opciones propias (nada de menús desplegables) */
+.ck,.radio{width:18px;height:18px;border:1.5px solid var(--tx2);flex:none;display:grid;place-items:center;transition:all .12s}
+.ck{border-radius:5px}.radio{border-radius:50%}
+.on>.ck{background:var(--acento);border-color:var(--acento)}
+.on>.ck:after{content:"";width:9px;height:5px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.on>.radio{border:5px solid var(--acento)}
+.sw{width:38px;height:22px;border-radius:11px;background:var(--ln);position:relative;flex:none;transition:background .15s}
+.sw:after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .18s var(--suave);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.on>.sw{background:var(--ok)}.on>.sw:after{transform:translateX(16px)}
+
+.elige{display:flex;margin:0 14px 12px;border:1px solid var(--ln);border-radius:8px;overflow:hidden}
+.elige button{flex:1;padding:8px 4px;font-weight:600;color:var(--tx2);transition:background .12s}
+.elige button+button{border-left:1px solid var(--ln)}
+.elige button.on{background:var(--acento-suave);color:var(--acento)}
+
+.soltar{border:1.5px dashed var(--ln);border-radius:10px;padding:20px 14px;text-align:center;background:var(--caja);transition:all .15s;flex:none}
+.soltar b{display:block;font-size:15px}.soltar small{color:var(--tx2)}
+.soltar button{color:var(--acento);text-decoration:underline;font-size:inherit}
+.soltar.encima{border-color:var(--acento);background:var(--acento-suave);transform:scale(1.01)}
+
+.vacio{padding:28px 16px;text-align:center;color:var(--tx2)}
+.nota{color:var(--tx2);font-size:12.5px;padding:0 2px}
+.cargando{height:14px;margin:12px 14px;border-radius:6px;background:linear-gradient(90deg,var(--hover),var(--ln),var(--hover));background-size:200% 100%;animation:brillo 1.2s linear infinite}
+@keyframes brillo{to{background-position:-200% 0}}
+
+footer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--ln);background:var(--caja);flex:none}
+footer:empty{display:none}
+.btn{flex:1;padding:11px 12px;border-radius:9px;border:1px solid var(--ln);background:var(--caja);font-weight:700;color:var(--tx);transition:transform .1s,opacity .15s}
+.btn:active{transform:scale(.98)}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:var(--pri-tx)}
+.btn:disabled{opacity:.45;cursor:default}
+
+.aviso{position:fixed;left:12px;right:12px;bottom:76px;padding:11px 14px;border-radius:10px;background:var(--pri);color:var(--pri-tx);font-weight:600;
+  opacity:0;transform:translateY(8px);transition:all .2s var(--suave);pointer-events:none}
+.aviso.ver{opacity:1;transform:none}.aviso.mal{background:var(--mal);color:#fff}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* segunda pantalla */
+.caja.mal{border-color:rgba(209,67,67,.45)}.caja.mal h3{color:var(--mal)}
+.fila .flecha{color:var(--tx2);font-size:20px;line-height:1}
+.caja.fila.sola{border-top:1px solid var(--ln)}
+.fila.qr{align-items:flex-start}
+.fila.qr .cod{background:#fff;padding:8px;border-radius:8px;flex:none;line-height:0}
+.fila.qr .cod svg{width:112px;height:112px}
+.fila code{display:block;margin-top:6px;font:12px ui-monospace,Menlo,monospace;word-break:break-all;-webkit-user-select:text;user-select:text;color:var(--tx)}
+
+/* ventana ancha (4:3 o más): dos columnas */
+@media (min-width:760px){
+  main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;align-items:start;max-width:1280px;width:100%;margin:0 auto}
+  main.t-archivos{grid-template-columns:minmax(260px,360px) minmax(0,1fr);grid-template-rows:auto auto 1fr;align-items:stretch;align-content:stretch}
+  main.t-archivos .soltar{grid-column:1;grid-row:1;padding:48px 20px}
+  main.t-archivos .desde{grid-column:1;grid-row:2;align-self:start}
+  main.t-archivos .caja.crece{grid-column:2;grid-row:1 / span 3;min-height:0}
+  main .caja.mal,.nota{grid-column:1 / -1}
+  .estado,nav{max-width:1256px;width:calc(100% - 24px);margin-left:auto;margin-right:auto}
+  footer{justify-content:flex-end}footer .btn{flex:0 1 280px}
+}
+.desde .n b{white-space:normal}

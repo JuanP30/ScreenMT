@@ -1,0 +1,8 @@
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties

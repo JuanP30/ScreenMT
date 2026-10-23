@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="estilo.css">
+<h1>Qué hay en cada carpeta</h1>
+<p class="sub">El proyecto completo: cuatro piezas pequeñas y sin librerías de más.</p>
+<table>
+<tr><th><code>ui/</code></th><td>La ventana del Mac: HTML, CSS y JavaScript sin dependencias. Abierta en un navegador muestra datos de ejemplo, para diseñar sin tablet.</td></tr>
+<tr><th><code>src-tauri/</code></th><td>El lado nativo del Mac, en Rust (Tauri). Habla con <code>adb</code> y <code>scrcpy</code>, recibe los archivos de la tablet y enciende o apaga la segunda pantalla.</td></tr>
+<tr><th><code>pantalla/</code></th><td><b>screenmt-pantalla</b>, en Swift: pantalla virtual, grabación, compresión H.264 por hardware, envío a la tablet y toques convertidos en clics del Mac.</td></tr>
+<tr><th><code>android/</code></th><td>La app de la tablet, en Java y sin librerías: video a pantalla completa, toques, «Enviar archivos al Mac» y «Abrir Descargas».</td></tr>
+<tr><th><code>docs/</code></th><td>La guía completa, las capturas y estos diagramas (su fuente HTML está en <code>docs/diagramas/</code>).</td></tr>
+</table>

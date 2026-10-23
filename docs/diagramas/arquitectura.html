@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="estilo.css">
+<style>.g{display:grid;grid-template-columns:1fr 190px 1fr;gap:0 14px;align-items:stretch}.fila3{display:contents}</style>
+<h1>Cómo funciona por dentro</h1>
+<p class="sub">Todo pasa directo entre el Mac y la tablet: sin nube, sin cuentas, sin navegador.</p>
+<div class="g">
+  <div class="lado"><h2><img class="logo" src="logo.png">Mac · app ScreenMT</h2>
+    <div class="pieza"><span class="etq">Ver tablet</span><b>scrcpy</b><small>Muestra y maneja la tablet en una ventana del Mac</small></div>
+    <div class="pieza"><span class="etq">Archivos</span><b>adb push / pull + receptor propio</b><small>Manda y trae archivos; recibe lo que envía la app de la tablet</small></div>
+    <div class="pieza azul"><span class="etq">2.ª pantalla</span><b>screenmt-pantalla (Swift)</b><small>Crea una pantalla virtual o copia la tuya, la graba con ScreenCaptureKit y la comprime en H.264 por hardware</small></div>
+  </div>
+  <div class="flecha">
+    <div>Cable USB<br><small>adb · adb reverse</small></div>
+    <span class="der"></span><small>video H.264</small>
+    <span class="izq"></span><small>toques y archivos</small>
+    <div style="margin-top:8px">o wifi<br><small>con clave de un solo uso</small></div>
+  </div>
+  <div class="lado"><h2><img class="logo" src="logo.png">Tablet · Android</h2>
+    <div class="pieza"><span class="etq">Ver tablet</span><b>La tablet tal cual</b><small>scrcpy usa las herramientas que Android ya trae</small></div>
+    <div class="pieza"><span class="etq">Archivos</span><b>Descargas · app ScreenMT</b><small>Lo del Mac llega a Descargas; «Enviar archivos al Mac» manda al Mac</small></div>
+    <div class="pieza azul"><span class="etq">2.ª pantalla</span><b>App ScreenMT</b><small>Decodifica el video por hardware (MediaCodec) a pantalla completa y devuelve los toques</small></div>
+  </div>
+</div>

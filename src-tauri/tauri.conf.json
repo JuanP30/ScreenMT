@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ScreenMT",
+  "version": "0.2.0",
+  "identifier": "io.github.juanp30.screenmt",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "ScreenMT",
+        "url": "index.html",
+        "width": 960,
+        "height": 720,
+        "minWidth": 380,
+        "minHeight": 560,
+        "resizable": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.png"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
+    "externalBin": [
+      "binaries/screenmt-pantalla"
+    ],
+    "resources": {
+      "../android/app/build/outputs/apk/release/app-release.apk": "screenmt-tablet.apk"
+    },
+    "category": "Utility",
+    "shortDescription": "Usa tu tablet Android con tu Mac por cable o wifi",
+    "copyright": "MIT"
+  }
+}

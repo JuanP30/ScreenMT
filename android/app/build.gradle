@@ -1,0 +1,20 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'io.github.juanp30.screenmt'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'io.github.juanp30.screenmt'
+        minSdk 24
+        targetSdk 36
+        versionCode 2
+        versionName '0.2.0'
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            // firmada con la llave de depuración: basta para instalarla a mano o desde ScreenMT
+            signingConfig signingConfigs.debug
+        }
+    }
+}

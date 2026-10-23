@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="estilo.css">
+<style>.g{display:grid;grid-template-columns:1fr 1fr;gap:16px}</style>
+<h1>Seguridad</h1>
+<p class="sub">Tu pantalla y tus archivos no salen de tu Mac y tu tablet.</p>
+<div class="g">
+  <div class="lado"><h2>🔌 Por cable</h2>
+    <div class="pieza"><b>Solo dentro del Mac</b><small>La segunda pantalla y el receptor de archivos escuchan únicamente en <code>127.0.0.1</code>. Nadie en tu red los ve.</small></div>
+    <div class="pieza"><b>Solo tu tablet</b><small>La tablet llega por <code>adb reverse</code>, que exige que aceptaras «Permitir depuración USB» para ese Mac.</small></div>
+  </div>
+  <div class="lado"><h2>📶 Por wifi</h2>
+    <div class="pieza"><b>Clave de un solo uso</b><small>Cada vez que enciendes se crea una clave aleatoria que viaja en el código QR. Sin ella, el Mac cierra la conexión.</small></div>
+    <div class="pieza"><b>Solo en tu red</b><small>No usa internet ni servidores externos. Al apagar, la clave deja de servir.</small></div>
+  </div>
+</div>
+<p class="sub" style="margin:18px 0 0">ScreenMT no guarda nada fuera de tu Mac: solo tus ajustes y el tamaño de la ventana.</p>

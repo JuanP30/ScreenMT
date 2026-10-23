@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>ScreenMT</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header data-tauri-drag-region>
+  <img class="logo" src="logo.svg" alt="" data-tauri-drag-region>
+  <b data-tauri-drag-region>ScreenMT</b>
+  <div class="lados">
+    <button data-a="lado" data-lado="izq" title="Pegar a la izquierda">
+      <svg viewBox="0 0 20 20"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><rect x="2.5" y="3.5" width="6" height="13" rx="2" class="lleno"/></svg>
+    </button>
+    <button data-a="lado" data-lado="der" title="Pegar a la derecha">
+      <svg viewBox="0 0 20 20"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><rect x="11.5" y="3.5" width="6" height="13" rx="2" class="lleno"/></svg>
+    </button>
+  </div>
+</header>
+
+<section id="estado" class="estado"><span class="punto"></span><div><b>Buscando la tablet…</b><small>&nbsp;</small></div></section>
+
+<nav>
+  <button data-tab="ver" class="on">Ver tablet</button>
+  <button data-tab="archivos">Archivos</button>
+  <button data-tab="pantalla">2.ª pantalla</button>
+  <button data-tab="ajustes">Ajustes</button>
+</nav>
+
+<main id="vista"></main>
+<footer id="pie"></footer>
+<div id="aviso" class="aviso"></div>
+<script src="qrcode.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
