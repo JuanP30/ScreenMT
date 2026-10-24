@@ -53,6 +53,7 @@ final class Teclado {
         campo.setImeOptions(EditorInfo.IME_ACTION_SEND | EditorInfo.IME_FLAG_NO_FULLSCREEN | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         campo.setSingleLine(true);
         campo.setAlpha(0f);
+        campo.setFocusableInTouchMode(true);
         campo.setText(GUARDA);
         campo.setSelection(GUARDA.length());
         campo.addTextChangedListener(new TextWatcher() {
@@ -72,7 +73,7 @@ final class Teclado {
         fila.setPadding((int) (8 * dp), (int) (6 * dp), (int) (8 * dp), (int) (6 * dp));
         Object[][] teclas = {
                 {"Esc", 53, ""}, {"Tab", 48, ""}, {"←", 123, ""}, {"↑", 126, ""}, {"↓", 125, ""}, {"→", 124, ""},
-                {"⌫", BORRAR, ""}, {"↵", ENTER, ""}, {"Copiar", 8, "cmd"}, {"Pegar", 9, "cmd"}, {"Deshacer", 6, "cmd"},
+                {"Borrar", BORRAR, ""}, {"Enter", ENTER, ""}, {"Copiar", 8, "cmd"}, {"Pegar", 9, "cmd"}, {"Deshacer", 6, "cmd"},
                 {"Todo", 0, "cmd"}, {"Buscar", 3, "cmd"}, {"Cerrar", -1, ""},
         };
         for (Object[] t : teclas) {
@@ -139,11 +140,18 @@ final class Teclado {
         barra.setVisibility(View.VISIBLE);
         campo.requestFocus();
         InputMethodManager im = (InputMethodManager) c.getSystemService(Context.INPUT_METHOD_SERVICE);
-        campo.post(() -> im.showSoftInput(campo, InputMethodManager.SHOW_IMPLICIT));
+        // el campo es invisible: Android ignora la petición «suave», así que se pide directamente
+        campo.post(() -> {
+            if (android.os.Build.VERSION.SDK_INT >= 30 && campo.getWindowInsetsController() != null)
+                campo.getWindowInsetsController().show(android.view.WindowInsets.Type.ime());
+            im.showSoftInput(campo, InputMethodManager.SHOW_FORCED);
+        });
     }
 
     void ocultar() {
         barra.setVisibility(View.GONE);
+        if (android.os.Build.VERSION.SDK_INT >= 30 && campo.getWindowInsetsController() != null)
+            campo.getWindowInsetsController().hide(android.view.WindowInsets.Type.ime());
         InputMethodManager im = (InputMethodManager) c.getSystemService(Context.INPUT_METHOD_SERVICE);
         im.hideSoftInputFromWindow(campo.getWindowToken(), 0);
         campo.clearFocus();
