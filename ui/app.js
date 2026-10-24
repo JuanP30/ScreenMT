@@ -52,7 +52,11 @@ async function revisar() {
   try {
     const p = await invoke('pantalla_estado');
     const cambio = !!p.activa !== !!V.pant?.activa;
+    const ctl = V.pant?.control;
     V.pant = Object.assign(V.pant || {}, p);
+    // el lado nativo solo avisa cuando el permiso llega tarde; si no, se conserva lo del arranque
+    V.pant.control = p.control || ctl;
+    if (p.control && ctl === false && V.tab === 'pantalla') pintar(false);
     if (p.error) { V.pantErr = p.error; }
     if (cambio && V.tab === 'pantalla') pintar(false);
   } catch {}

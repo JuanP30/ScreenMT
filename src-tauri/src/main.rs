@@ -249,8 +249,10 @@ struct Pantalla {
     error: Option<serde_json::Value>,
     // lo que la tablet aceptó mostrar: {"ancho","alto","fps"}
     info: Option<serde_json::Value>,
+    // el permiso de Accesibilidad llegó con la pantalla ya encendida
+    control: bool,
 }
-static PANTALLA: Mutex<Pantalla> = Mutex::new(Pantalla { hijo: None, url: String::new(), cable: false, error: None, info: None });
+static PANTALLA: Mutex<Pantalla> = Mutex::new(Pantalla { hijo: None, url: String::new(), cable: false, error: None, info: None, control: false });
 
 fn ayudante() -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("screenmt-pantalla"))).unwrap_or_default()
@@ -277,6 +279,7 @@ fn apagar_todo(p: &mut Pantalla) {
     p.url.clear();
     p.cable = false;
     p.info = None;
+    p.control = false;
 }
 
 #[tauri::command]
@@ -327,6 +330,7 @@ async fn pantalla_encender(cable: bool, extra: bool, calidad: String, espacio: S
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&l) {
                 if v.get("error").is_some() { PANTALLA.lock().unwrap().error = Some(v); }
                 else if v.get("ajuste").is_some() { PANTALLA.lock().unwrap().info = Some(v); }
+                else if v.get("control").is_some() { PANTALLA.lock().unwrap().control = true; }
             }
         }
     });
@@ -348,7 +352,7 @@ fn pantalla_estado() -> serde_json::Value {
     let mut p = PANTALLA.lock().unwrap();
     let viva = p.hijo.as_mut().map(|h| matches!(h.try_wait(), Ok(None))).unwrap_or(false);
     if !viva && p.hijo.is_some() { apagar_todo(&mut p); }
-    serde_json::json!({ "activa": viva, "url": p.url, "error": p.error, "info": p.info })
+    serde_json::json!({ "activa": viva, "url": p.url, "error": p.error, "info": p.info, "control": p.control })
 }
 
 #[tauri::command]

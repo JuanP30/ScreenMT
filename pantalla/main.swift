@@ -55,8 +55,20 @@ if !CGPreflightScreenCaptureAccess() {
     morir("Falta el permiso de «Grabación de pantalla» para ScreenMT.", "permiso_pantalla")
 }
 // «--control no»: solo mostrar, sin pedir el permiso de Accesibilidad
-let puedeControlar = op["control"] != "no" &&
+let sinControl = op["control"] == "no"
+let puedeControlar = !sinControl &&
     AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+// el permiso se puede dar con la segunda pantalla ya encendida: se vuelve a mirar (como mucho cada 2 s)
+var controlOk = puedeControlar, controlVisto = Date()
+func hayControl() -> Bool {
+    if sinControl { return false }
+    if !controlOk && Date().timeIntervalSince(controlVisto) > 2 {
+        controlVisto = Date()
+        controlOk = AXIsProcessTrusted()
+        if controlOk { decir(["control": true]) }
+    }
+    return controlOk
+}
 
 /* ---------- la pantalla ---------- */
 var virtual: CGVirtualDisplay?  // mientras viva este objeto (y este proceso), existe la pantalla
@@ -283,7 +295,7 @@ func punto(_ x: Double, _ y: Double) -> CGPoint {
     return CGPoint(x: b.minX + max(0, min(1, x)) * b.width, y: b.minY + max(0, min(1, y)) * b.height)
 }
 func evento(_ j: [String: Any]) {
-    guard puedeControlar, let t = j["t"] as? String else { return }
+    guard hayControl(), let t = j["t"] as? String else { return }
     let p = punto(j["x"] as? Double ?? 0, j["y"] as? Double ?? 0)
     func raton(_ tipo: CGEventType, _ boton: CGMouseButton = .left) {
         CGEvent(mouseEventSource: nil, mouseType: tipo, mouseCursorPosition: p, mouseButton: boton)?.post(tap: .cghidEventTap)
