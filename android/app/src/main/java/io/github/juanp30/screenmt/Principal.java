@@ -469,9 +469,9 @@ public class Principal extends Activity {
     private void mostrarInicio() {
         video.setVisibility(View.GONE);
         inicio.setVisibility(View.VISIBLE);
-        if (!porWifi) estado.setText("Esperando al Mac por cable…\nEn el Mac: ScreenMT → 2.ª pantalla → Encender");
-        else if (wifiHost.isEmpty()) estado.setText("Escanea con la cámara el código QR que muestra\nScreenMT en el Mac al encender por wifi");
-        else estado.setText("Esperando al Mac por wifi (" + wifiHost + ")…\nSi cambió el código, vuelve a escanearlo");
+        if (!porWifi) estado.setText("Esperando al Mac por cable…");
+        else if (wifiHost.isEmpty()) estado.setText("Escanea con la cámara el código QR que muestra ScreenMT en el Mac");
+        else estado.setText("Esperando al Mac por wifi (" + wifiHost + ")… Si cambió el código, vuelve a escanearlo.");
         pintarModo(botonCable, !porWifi);
         pintarModo(botonWifi, porWifi);
     }
