@@ -413,12 +413,12 @@ public class Principal extends Activity {
         }
     };
 
-    // velocidad del dedo (dp/ms) → cuánto multiplicar: 0,35 muy despacio … 2,8 muy rápido
+    // velocidad del dedo (dp/ms) → cuánto multiplicar: 0,3 muy despacio … 1,6 muy rápido (más alto se descontrola)
     private void desplazar(float dxPx, float dyPx, long dtMs, float x, float y) {
         float dp = getResources().getDisplayMetrics().density;
         float dx = dxPx / dp, dy = dyPx / dp;
         float v = (float) Math.hypot(dx, dy) / Math.max(1, dtMs);
-        float g = Math.max(0.35f, Math.min(2.8f, 0.35f + 0.75f * v));
+        float g = Math.max(0.3f, Math.min(1.6f, 0.3f + 0.45f * v));
         toque("s", x, y, dx * g, dy * g);
     }
 
@@ -426,7 +426,7 @@ public class Principal extends Activity {
     private float ivx, ivy, ix, iy;
     private final Runnable inercia = new Runnable() {
         public void run() {
-            ivx *= 0.92f; ivy *= 0.92f;
+            ivx *= 0.88f; ivy *= 0.88f;
             if (Math.hypot(ivx, ivy) < 40) return;
             toque("s", ix, iy, ivx * 0.016f, ivy * 0.016f);
             ui.postDelayed(this, 16);
@@ -437,8 +437,8 @@ public class Principal extends Activity {
         float dp = getResources().getDisplayMetrics().density;
         vt.computeCurrentVelocity(1000);
         float vx = vt.getXVelocity() / dp, vy = vt.getYVelocity() / dp;
-        if (Math.hypot(vx, vy) < 350) return;
-        ivx = vx * 1.2f; ivy = vy * 1.2f; ix = x; iy = y;
+        if (Math.hypot(vx, vy) < 500) return;  // solo si soltaste con ganas
+        ivx = vx * 0.6f; ivy = vy * 0.6f; ix = x; iy = y;
         ui.postDelayed(inercia, 16);
     }
 

@@ -49,7 +49,7 @@ let (escala, mbps) = niveles[op["calidad"] ?? ""] ?? niveles["nitida"]!
 let espacio = op["espacio"] ?? "grande"
 // desplazar con dos dedos: cuánto se mueve por cada punto del dedo, y si va al revés
 // (la tablet ya acelera: despacio = poco, rápido = mucho; aquí solo el nivel general)
-let factorDesplazar = (["lenta": 0.5, "normal": 0.8, "rapida": 1.2][op["desplazar"] ?? "normal"] ?? 0.8) * (op["invertir"] == "si" ? -1 : 1)
+let factorDesplazar = (["lenta": 0.45, "normal": 0.7, "rapida": 1.0][op["desplazar"] ?? "normal"] ?? 0.8) * (op["invertir"] == "si" ? -1 : 1)
 var fps = 60
 // con «nítida» y «máxima» manda el tamaño; con «fluida» y «equilibrada», los 60 cuadros por segundo
 let preferencia = (op["calidad"] == "fluida" || op["calidad"] == "media") ? "fluidez" : "nitidez"
@@ -366,7 +366,11 @@ func evento(_ j: [String: Any]) {
         let dy = Int32(restoY.rounded(.towardZero)), dx = Int32(restoX.rounded(.towardZero))
         restoY -= Double(dy); restoX -= Double(dx)
         if dy == 0 && dx == 0 { return }
-        CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)?.post(tap: .cghidEventTap)
+        // marcado como «continuo» (como un trackpad), no como rueda de ratón: el Mac lo mueve punto por punto y
+        // las apps que aceleran la rueda (Mos, SmoothScroll…) no lo vuelven a acelerar
+        let ev = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)
+        ev?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        ev?.post(tap: .cghidEventTap)
     default: break
     }
 }
