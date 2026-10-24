@@ -53,7 +53,10 @@ let factorDesplazar = (["lenta": 0.5, "normal": 0.8, "rapida": 1.2][op["desplaza
 var fps = 60
 // con «nítida» y «máxima» manda el tamaño; con «fluida» y «equilibrada», los 60 cuadros por segundo
 let preferencia = (op["calidad"] == "fluida" || op["calidad"] == "media") ? "fluidez" : "nitidez"
-let clave = porWifi ? (0..<16).map { _ in String("abcdefghjkmnpqrstuvwxyz23456789".randomElement()!) }.joined() : ""
+// por wifi la clave la guarda la app del Mac (fija: la tablet la recuerda y no hay que escanear siempre);
+// si no llega, se inventa una para esta vez
+let clave = !porWifi ? "" : (op["clave"].flatMap { $0.count >= 12 ? $0 : nil }
+    ?? (0..<16).map { _ in String("abcdefghjkmnpqrstuvwxyz23456789".randomElement()!) }.joined())
 
 /* ---------- permisos ---------- */
 if !CGPreflightScreenCaptureAccess() {
@@ -424,6 +427,8 @@ do {
         servidor = try NWListener(using: params)
     }
 } catch { morir("No pude abrir el puerto \(puerto): \(error.localizedDescription)") }
+// por wifi se anuncia en la red de la casa (Bonjour), así la tablet encuentra al Mac aunque cambie su dirección
+if porWifi { servidor.service = NWListener.Service(name: nil, type: "_screenmt._tcp") }
 servidor.stateUpdateHandler = { if case .failed(let e) = $0 { morir("El puerto \(puerto) está ocupado (\(e)). Cierra la otra segunda pantalla y vuelve a intentar.") } }
 servidor.newConnectionHandler = { c in
     c.start(queue: cola)

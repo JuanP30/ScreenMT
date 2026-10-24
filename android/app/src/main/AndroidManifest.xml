@@ -25,5 +25,10 @@
                 <data android:scheme="screenmt" android:host="abrir" />
             </intent-filter>
         </activity>
+        <!-- emparejar por cable: solo adb lo puede mandar (permiso DUMP) -->
+        <receiver
+            android:name=".Emparejar"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
     </application>
 </manifest>

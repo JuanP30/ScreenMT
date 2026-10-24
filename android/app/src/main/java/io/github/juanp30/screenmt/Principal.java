@@ -121,6 +121,7 @@ public class Principal extends Activity {
 
     private void leerDestino(Intent i) {
         SharedPreferences p = getSharedPreferences("screenmt", MODE_PRIVATE);
+        // (el emparejamiento por cable pudo escribir wifiHost/wifiClave mientras la app estaba cerrada)
         porWifi = p.getBoolean("wifi", false);
         wifiHost = p.getString("wifiHost", "");
         wifiPuerto = p.getInt("wifiPuerto", 8730);
@@ -162,13 +163,62 @@ public class Principal extends Activity {
 
     /* ---------------- la conexión con el Mac ---------------- */
 
+    // Por wifi la tablet busca al Mac en la red (Bonjour, «_screenmt._tcp»): si el router le cambió la
+    // dirección, la encuentra igual. La clave ya la tiene (del QR o del emparejamiento por cable).
+    private volatile String hostEncontrado;
+    private android.net.nsd.NsdManager nsd;
+    private android.net.nsd.NsdManager.DiscoveryListener buscador;
+
+    private void buscarMac() {
+        if (buscador != null) return;
+        nsd = (android.net.nsd.NsdManager) getSystemService(NSD_SERVICE);
+        buscador = new android.net.nsd.NsdManager.DiscoveryListener() {
+            public void onStartDiscoveryFailed(String t, int e) { buscador = null; }
+            public void onStopDiscoveryFailed(String t, int e) { }
+            public void onDiscoveryStarted(String t) { }
+            public void onDiscoveryStopped(String t) { }
+            public void onServiceLost(android.net.nsd.NsdServiceInfo i) { }
+            @SuppressWarnings("deprecation")
+            public void onServiceFound(android.net.nsd.NsdServiceInfo i) {
+                nsd.resolveService(i, new android.net.nsd.NsdManager.ResolveListener() {
+                    public void onResolveFailed(android.net.nsd.NsdServiceInfo i, int e) { }
+                    public void onServiceResolved(android.net.nsd.NsdServiceInfo i) {
+                        if (i.getHost() != null && i.getHost() instanceof java.net.Inet4Address) hostEncontrado = i.getHost().getHostAddress();
+                    }
+                });
+            }
+        };
+        try { nsd.discoverServices("_screenmt._tcp", android.net.nsd.NsdManager.PROTOCOL_DNS_SD, buscador); } catch (Exception e) { buscador = null; }
+    }
+
+    private void dejarDeBuscar() {
+        if (nsd != null && buscador != null) try { nsd.stopServiceDiscovery(buscador); } catch (Exception ignorada) { }
+        buscador = null;
+    }
+
     private void conectarSiempre() {
+        int fallos = 0;
         while (vivo) {
-            if (porWifi && wifiHost.isEmpty()) { dormir(800); continue; } // falta escanear el QR
+            if (porWifi) {
+                ui.post(this::buscarMac);
+                // el emparejamiento por cable pudo cambiar la clave mientras tanto
+                if (fallos > 0) {
+                    SharedPreferences p = getSharedPreferences("screenmt", MODE_PRIVATE);
+                    wifiClave = p.getString("wifiClave", wifiClave);
+                    if (hostEncontrado == null) wifiHost = p.getString("wifiHost", wifiHost);
+                    guardarDestino();
+                }
+                // lo guardado no responde: probar donde se anunció el Mac
+                String h = hostEncontrado;
+                if (h != null && !h.equals(wifiHost) && fallos > 0) { wifiHost = h; guardarDestino(); }
+                if (wifiHost.isEmpty() || wifiClave.isEmpty()) { dormir(800); continue; } // falta emparejar
+            }
             try {
                 transmitir();
+                fallos = 0;
             } catch (Exception e) {
                 // el Mac no está transmitiendo todavía o se cortó: volver al inicio y reintentar
+                fallos++;
             }
             cerrarSocket();
             ui.post(this::mostrarInicio);
@@ -775,9 +825,16 @@ public class Principal extends Activity {
         panel.setVisibility(View.GONE);
         if (teclado.visible()) teclado.ocultar();
         inicio.setVisibility(View.VISIBLE);
+        // lo que dejó el emparejamiento por cable mientras la app esperaba
+        SharedPreferences p = getSharedPreferences("screenmt", MODE_PRIVATE);
+        if (wifiClave.isEmpty() || wifiHost.isEmpty()) {
+            wifiClave = p.getString("wifiClave", wifiClave);
+            wifiHost = p.getString("wifiHost", wifiHost);
+            if (porWifi) guardarDestino();
+        }
         if (!porWifi) estado.setText("Esperando al Mac por cable…");
-        else if (wifiHost.isEmpty()) estado.setText("Escanea con la cámara el código QR que muestra ScreenMT en el Mac");
-        else estado.setText("Esperando al Mac por wifi (" + wifiHost + ")… Si cambió el código, vuelve a escanearlo.");
+        else if (wifiClave.isEmpty()) estado.setText("Falta emparejar: escanea una vez el código QR del Mac, o conecta la tablet por cable un momento con ScreenMT abierta en el Mac.");
+        else estado.setText("Esperando al Mac por wifi… En el Mac: ScreenMT → 2.ª pantalla → Por wifi → Encender.");
         pintarModo(botonCable, !porWifi);
         pintarModo(botonWifi, porWifi);
     }
@@ -896,6 +953,7 @@ public class Principal extends Activity {
     @Override
     protected void onDestroy() {
         vivo = false;
+        dejarDeBuscar();
         sonido.apagarTodo();
         cerrarSocket();
         salida.shutdownNow();

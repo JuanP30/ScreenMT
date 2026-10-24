@@ -63,6 +63,7 @@ async fn estado() -> Estado {
     if !*puente {
         let p = format!("tcp:{}", PUERTO_ARCHIVOS);
         *puente = adb(&["reverse", &p, &p]).is_ok();
+        if *puente { emparejar_por_cable(); }
     }
     drop(puente);
     let marca = adb(&["shell", "getprop", "ro.product.manufacturer"]).unwrap_or_default();
@@ -226,7 +227,7 @@ fn escuchar_archivos() {
 const PUERTO: u16 = 8730;
 // la app de la tablet (carpeta android/); subir APP_VERSION junto con versionCode para que se actualice sola
 const APP_TABLET: &str = "io.github.juanp30.screenmt";
-const APP_VERSION: u32 = 10;
+const APP_VERSION: u32 = 11;
 
 fn recurso(nombre: &str) -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("../Resources").join(nombre))).unwrap_or_default()
@@ -294,6 +295,7 @@ async fn pantalla_encender(cable: bool, extra: bool, calidad: String, espacio: S
     let (ancho, alto) = if conectada { tamano_tablet() } else { (2560, 1600) };
     let mut hijo = Command::new(ayudante())
         .args(["--modo", if extra { "extra" } else { "copia" }, "--red", if cable { "cable" } else { "wifi" }, "--calidad", &calidad, "--espacio", &espacio, "--desplazar", &desplazar, "--invertir", if invertir { "si" } else { "no" }])
+        .args(if cable { vec![] } else { vec!["--clave".to_string(), clave_wifi()] })
         .args(["--ancho", &ancho.to_string(), "--alto", &alto.to_string(), "--puerto", &PUERTO.to_string()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -342,6 +344,48 @@ async fn pantalla_encender(cable: bool, extra: bool, calidad: String, espacio: S
     Ok(primera)
 }
 
+// clave fija para wifi: la tablet la guarda (por QR una vez, o sola por cable) y se conecta sin escanear.
+// Vive en un archivo solo legible por este usuario; «Olvidar tabletas» la cambia.
+fn archivo_clave() -> PathBuf {
+    PathBuf::from(home()).join("Library/Application Support/io.github.juanp30.screenmt/clave-wifi")
+}
+fn clave_wifi() -> String {
+    if let Ok(k) = std::fs::read_to_string(archivo_clave()) {
+        let k = k.trim().to_string();
+        if k.len() >= 12 { return k; }
+    }
+    let letras = b"abcdefghjkmnpqrstuvwxyz23456789";
+    let mut azar = [0u8; 20];
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") { use std::io::Read; let _ = f.read_exact(&mut azar); }
+    let k: String = azar.iter().map(|b| letras[(*b as usize) % letras.len()] as char).collect();
+    let a = archivo_clave();
+    let _ = std::fs::create_dir_all(a.parent().unwrap());
+    let _ = std::fs::write(&a, &k);
+    use std::os::unix::fs::PermissionsExt;
+    let _ = std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o600));
+    k
+}
+fn ip_del_mac() -> String {
+    for i in ["en0", "en1", "en2"] {
+        if let Ok(o) = Command::new("ipconfig").args(["getifaddr", i]).output() {
+            let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if !s.is_empty() { return s; }
+        }
+    }
+    String::new()
+}
+// le pasa a la app de la tablet, por cable y sin abrirla, cómo encontrar a este Mac por wifi
+fn emparejar_por_cable() {
+    let _ = adb(&["shell", "am", "broadcast", "-n", &format!("{}/.Emparejar", APP_TABLET),
+                  "--es", "clave", &clave_wifi(), "--es", "host", &ip_del_mac(), "--ei", "puerto", &PUERTO.to_string()]);
+}
+
+#[tauri::command]
+fn olvidar_tabletas() {
+    let _ = std::fs::remove_file(archivo_clave());
+    if adb(&["get-state"]).as_deref() == Ok("device") { emparejar_por_cable(); }
+}
+
 #[tauri::command]
 fn pantalla_apagar() {
     apagar_todo(&mut PANTALLA.lock().unwrap());
@@ -387,7 +431,7 @@ fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             estado, ver_tablet, listar, enviar, traer, abrir_carpeta, fijar_destino,
-            pantalla_encender, pantalla_apagar, pantalla_estado, abrir_permiso, instalar_app_tablet, hay_blackhole
+            pantalla_encender, pantalla_apagar, pantalla_estado, abrir_permiso, instalar_app_tablet, hay_blackhole, olvidar_tabletas
         ])
         .build(tauri::generate_context!())
         .expect("no pudo arrancar ScreenMT")

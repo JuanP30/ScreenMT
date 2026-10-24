@@ -157,8 +157,8 @@ function vPantalla() {
     <div class="caja ancha"><h3>Encendida</h3>
       <div class="fila"><span class="punto ok"></span><div class="n"><b>La tablet está mostrando tu Mac</b>
         <small>${AJ.extra ? 'Como pantalla extra' : 'Copia de la pantalla principal'} · ${wifi ? 'por wifi' : 'por cable'}${P.info ? ` · ${P.info.ancho} × ${P.info.alto} a ${P.info.fps} cuadros/s` : ''}</small></div></div>
-      ${wifi ? `<div class="fila qr"><div class="cod">${qr}</div><div class="n"><b>Escanea el código con la cámara de la tablet</b>
-        <small>Se abre la app ScreenMT de la tablet y se conecta sola. Si no la tienes, instálala en Ajustes (por cable, una vez).</small>
+      ${wifi ? `<div class="fila qr"><div class="cod">${qr}</div><div class="n"><b>Solo la primera vez: escanea el código con la cámara de la tablet</b>
+        <small>Después la tablet recuerda este Mac y se conecta sola: abre ScreenMT en la tablet y toca «Por wifi». Si la conectas por cable aunque sea un momento, queda emparejada sin código.</small>
         <button class="btn grande-qr" data-a="qr-grande">Mostrar el código grande</button></div></div>` : ''}
     </div>
     ${P.control === false ? `<div class="caja ancha"><h3>Manejar el Mac desde la tablet</h3>
@@ -230,6 +230,10 @@ function vAjustes() {
   <div class="caja ancha"><h3>App ScreenMT en la tablet</h3>
     <button class="fila" data-a="instalar"><div class="n"><b>${V.instalando ? 'Instalando…' : 'Instalar o actualizar por cable'}</b>
       <small>Se instala sola al encender la segunda pantalla por cable. Para usar solo wifi, instálala una vez aquí.</small></div><span class="flecha">›</span></button>
+  </div>
+  <div class="caja ancha"><h3>Tabletas emparejadas por wifi</h3>
+    <button class="fila" data-a="olvidar"><div class="n"><b>${V.olvidado ? 'Listo: las tabletas deberán emparejarse de nuevo' : 'Olvidar tabletas'}</b>
+      <small>Cambia la clave del wifi. Cada tablet tendrá que escanear el código otra vez o conectarse por cable un momento.</small></div><span class="flecha">›</span></button>
   </div>
   <div class="caja ancha"><h3>Ancho al pegarla a un lado</h3>
     ${elige('ancho', [[380, 'Angosta'], [440, 'Normal'], [560, 'Ancha']])}
@@ -364,6 +368,7 @@ document.addEventListener('click', async (ev) => {
     V.instalando = false; pintar(false);
   }
   else if (a === 'qr-grande') qrGrande();
+  else if (a === 'olvidar') { await invoke('olvidar_tabletas'); V.olvidado = true; pintar(false); }
   else if (a === 'permiso') invoke('abrir_permiso', { cual: t.dataset.p });
   else if (a === 'carpeta') invoke('abrir_carpeta', { destino: AJ.destino });
   else if (a === 'destino') {
