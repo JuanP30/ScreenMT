@@ -238,7 +238,7 @@ function vAjustes() {
     ${elige('ancho', [[380, 'Angosta'], [440, 'Normal'], [560, 'Ancha']])}
   </div>
   <div class="caja ancha"><h3>Acerca de</h3>
-    <div class="fila"><div class="n"><b>ScreenMT 0.6.1</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
+    <div class="fila"><div class="n"><b>ScreenMT 0.6.2</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
   </div>`;
 }
 

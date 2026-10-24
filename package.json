@@ -2,7 +2,7 @@
   "name": "screenmt",
   "private": true,
   "license": "MIT",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "scripts": {
     "tauri": "tauri",
     "dev": "sh pantalla/compilar.sh && (cd android && ./gradlew -q assembleRelease) && tauri dev",

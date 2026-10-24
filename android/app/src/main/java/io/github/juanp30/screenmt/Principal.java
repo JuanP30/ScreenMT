@@ -88,7 +88,7 @@ public class Principal extends Activity {
     // ajustes de la barra: un dedo desplaza (como el celular) o arrastra (como el ratón), bocinas y micrófono
     private boolean modoToque = true, altavoz = false, mic = false;
     // ajustes del toque (botón de deslizadores en la barra): se aplican al momento
-    private float sensibilidad = 1f;      // 0,2 … 2
+    private float sensibilidad = 2f;      // 1,5 … 6
     private boolean inerciaSi = true, invertir = false;
     private int sostenerMs = 450;         // cuánto dejar el dedo quieto para empezar a arrastrar
     private static final int PERMISO_MIC = 2;
@@ -102,7 +102,8 @@ public class Principal extends Activity {
         modoToque = pref.getBoolean("modoToque", true);
         altavoz = pref.getBoolean("altavoz", false);
         mic = pref.getBoolean("mic", false) && tienePermisoMic();
-        sensibilidad = pref.getFloat("sensibilidad", 1f);
+        // rango 150–600 %: lo guardado de antes (20–200 %) sube al mínimo nuevo
+        sensibilidad = Math.max(1.5f, Math.min(6f, pref.getFloat("sensibilidad", 2f)));
         inerciaSi = pref.getBoolean("inercia", true);
         invertir = pref.getBoolean("invertir", false);
         sostenerMs = pref.getInt("sostenerMs", 450);
@@ -779,7 +780,7 @@ public class Principal extends Activity {
 
         TextView vSens = texto("", 15, 0xFFE6E8EC, false);
         c.addView(fila(vSens, dp));
-        c.addView(deslizador(20, 200, Math.round(sensibilidad * 100), n -> {
+        c.addView(deslizador(150, 600, Math.round(sensibilidad * 100), n -> {
             sensibilidad = n / 100f;
             vSens.setText("Sensibilidad al desplazar: " + n + " %");
             pref.edit().putFloat("sensibilidad", sensibilidad).apply();
