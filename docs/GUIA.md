@@ -135,9 +135,12 @@ Aquí la tablet **muestra el Mac**. Es lo contrario de *Ver tablet*. La imagen v
 Toca **«Encender segunda pantalla»**.
 
 - **Por cable:** ScreenMT **instala la app ScreenMT en la tablet** si hace falta y la **abre sola** a pantalla completa.
-- **Por wifi:** aparece un **código QR**. Escanéalo con la **cámara de la tablet** y se abre la app ScreenMT, ya conectada a tu Mac. La app tiene que estar instalada: instálala una vez por cable desde *Ajustes*, o descarga `ScreenMT-tablet.apk` de la página de versiones.
+- **Por wifi:** aparece un **código QR**. Si la cámara de la tablet no lo enfoca, toca **«Mostrar el código grande»** y ocupa todo el monitor. Escanéalo con la **cámara de la tablet** y se abre la app ScreenMT, ya conectada a tu Mac. La app tiene que estar instalada: instálala una vez por cable desde *Ajustes*, o descarga `ScreenMT-tablet.apk` de la página de versiones.
 
 <p align="center"><img src="img/tablet-pantalla-extra.png" width="560" alt="La tablet como pantalla extra del Mac"></p>
+
+### Cable o wifi en la app de la tablet
+Arriba en la app ScreenMT de la tablet hay dos botones: **«Por cable»** y **«Por wifi»**. Cada uno espera al Mac por su lado y la app recuerda el último wifi que escaneaste. Si el Mac la abre por cable, se pasa sola a *Por cable*.
 
 ### Manejar el Mac tocando la tablet
 | En la tablet | En el Mac |
@@ -145,7 +148,7 @@ Toca **«Encender segunda pantalla»**.
 | Tocar | Clic |
 | Tocar y mover | Arrastrar |
 | Dejar el dedo quieto | Clic derecho |
-| Dos dedos | Desplazar |
+| Dos dedos a la vez, arriba o abajo (o a los lados) | Desplazar, como en el trackpad |
 
 Para esto macOS pide el permiso de **Accesibilidad** (ver [permisos](#8-permisos-que-pide-macos)). Sin él, la tablet solo muestra la pantalla.
 

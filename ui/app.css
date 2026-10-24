@@ -95,13 +95,13 @@ footer:empty{display:none}
 .caja.fila.sola{border-top:1px solid var(--ln)}
 .fila.qr{align-items:flex-start}
 .fila.qr .cod{background:#fff;padding:8px;border-radius:8px;flex:none;line-height:0}
-.fila.qr .cod svg{width:112px;height:112px}
+.fila.qr .cod svg{width:200px;height:200px}
 .fila code{display:block;margin-top:6px;font:12px ui-monospace,Menlo,monospace;word-break:break-all;-webkit-user-select:text;user-select:text;color:var(--tx)}
 
 /* ventana ancha (4:3 o más): cada caja a todo el ancho; lado a lado solo lo que mide igual */
 @media (min-width:760px){
   main{max-width:1280px;width:100%;margin:0 auto}
-  main.t-pantalla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;align-items:stretch}
+  main.t-pantalla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:max-content;align-content:start;align-items:stretch}
   main.t-pantalla>.ancha,main.t-pantalla>.mal,main.t-pantalla>.nota{grid-column:1 / -1}
   main.t-archivos{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);grid-template-rows:auto auto 1fr;align-items:stretch;align-content:stretch}
   main.t-archivos .soltar{grid-column:1;grid-row:1;padding:48px 20px}
@@ -116,3 +116,10 @@ footer:empty{display:none}
 }
 .explica{color:var(--tx2);font-size:12.5px;padding:0 14px 12px;margin-top:-4px}
 .desde .n b{white-space:normal}
+
+.grande-qr{margin-top:10px;flex:none;padding:9px 14px}
+.velo-qr{position:fixed;inset:0;z-index:20;background:rgba(10,12,16,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:grid;place-items:center;animation:entra .2s var(--suave);cursor:pointer}
+.qr-caja{background:#fff;border-radius:18px;padding:28px;text-align:center}
+.qr-caja svg{width:min(78vh,78vw);height:min(78vh,78vw);display:block}
+.qr-caja p{color:#5f6775;font-size:14px;margin-top:14px}

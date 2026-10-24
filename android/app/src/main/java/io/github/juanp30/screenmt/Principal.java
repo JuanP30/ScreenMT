@@ -69,6 +69,7 @@ public class Principal extends Activity {
     private SurfaceView video;
     private View inicio;
     private TextView estado;
+    private Button botonCable, botonWifi;
     private volatile boolean vivo = true;
     private volatile Socket socket;
     private volatile DataOutputStream out;
@@ -97,31 +98,58 @@ public class Principal extends Activity {
 
     /* ---------------- a dónde conectarse ---------------- */
 
-    // por cable el Mac abre la app con extras; por wifi llega del QR: screenmt://abrir?h=IP&p=8730&k=CLAVE
+    // Dos modos, cada uno con su destino. Por cable siempre es 127.0.0.1 (adb reverse); por wifi el destino
+    // llega del QR (screenmt://abrir?h=IP&p=8730&k=CLAVE) y se recuerda. El Mac, por cable, abre la app con extras.
+    private volatile boolean porWifi = false;
+    private String wifiHost = "", wifiClave = "";
+    private int wifiPuerto = 8730;
+
     private void leerDestino(Intent i) {
         SharedPreferences p = getSharedPreferences("screenmt", MODE_PRIVATE);
-        host = p.getString("host", "127.0.0.1");
-        puerto = p.getInt("puerto", 8730);
-        clave = p.getString("clave", "");
+        porWifi = p.getBoolean("wifi", false);
+        wifiHost = p.getString("wifiHost", "");
+        wifiPuerto = p.getInt("wifiPuerto", 8730);
+        wifiClave = p.getString("wifiClave", "");
         if (i != null) {
             Uri d = i.getData();
-            if (d != null && "screenmt".equals(d.getScheme())) {
-                if (d.getQueryParameter("h") != null) host = d.getQueryParameter("h");
-                try { puerto = Integer.parseInt(d.getQueryParameter("p")); } catch (Exception ignorada) { }
-                clave = d.getQueryParameter("k") == null ? "" : d.getQueryParameter("k");
+            if (d != null && "screenmt".equals(d.getScheme()) && d.getQueryParameter("h") != null) {
+                wifiHost = d.getQueryParameter("h");
+                try { wifiPuerto = Integer.parseInt(d.getQueryParameter("p")); } catch (Exception ignorada) { }
+                wifiClave = d.getQueryParameter("k") == null ? "" : d.getQueryParameter("k");
+                porWifi = true;
             } else if (i.hasExtra("host")) {
-                host = i.getStringExtra("host");
-                puerto = i.getIntExtra("puerto", 8730);
-                clave = i.getStringExtra("clave") == null ? "" : i.getStringExtra("clave");
+                String h = i.getStringExtra("host");
+                porWifi = !"127.0.0.1".equals(h);
+                if (porWifi) {
+                    wifiHost = h;
+                    wifiPuerto = i.getIntExtra("puerto", 8730);
+                    wifiClave = i.getStringExtra("clave") == null ? "" : i.getStringExtra("clave");
+                }
             }
         }
-        p.edit().putString("host", host).putInt("puerto", puerto).putString("clave", clave).apply();
+        guardarDestino();
+    }
+
+    private void guardarDestino() {
+        getSharedPreferences("screenmt", MODE_PRIVATE).edit().putBoolean("wifi", porWifi)
+                .putString("wifiHost", wifiHost).putInt("wifiPuerto", wifiPuerto).putString("wifiClave", wifiClave).apply();
+        if (porWifi) { host = wifiHost; puerto = wifiPuerto; clave = wifiClave; }
+        else { host = "127.0.0.1"; puerto = 8730; clave = ""; }
+    }
+
+    private void cambiarModo(boolean wifi) {
+        if (wifi == porWifi) return;
+        porWifi = wifi;
+        guardarDestino();
+        cerrarSocket();
+        mostrarInicio();
     }
 
     /* ---------------- la conexión con el Mac ---------------- */
 
     private void conectarSiempre() {
         while (vivo) {
+            if (porWifi && wifiHost.isEmpty()) { dormir(800); continue; } // falta escanear el QR
             try {
                 transmitir();
             } catch (Exception e) {
@@ -266,6 +294,7 @@ public class Principal extends Activity {
     private static final int NADA = 0, ESPERANDO = 1, ARRASTRANDO = 2, LARGO = 3, DESPLAZANDO = 4;
     private int gesto = NADA;
     private float x0, y0, cx, cy;
+    private boolean recentrar;
     private final Runnable arranque = () -> {
         if (gesto == ESPERANDO) { gesto = ARRASTRANDO; toque("d", x0, y0, 0, 0); }
     };
@@ -293,10 +322,15 @@ public class Principal extends Activity {
                 gesto = DESPLAZANDO;
                 cx = centroX(e); cy = centroY(e);
                 break;
+            case MotionEvent.ACTION_POINTER_UP:
+                recentrar = true; // con un dedo menos el centro salta: se toma de nuevo antes de seguir
+                break;
             case MotionEvent.ACTION_MOVE:
                 if (gesto == DESPLAZANDO) {
                     float nx = centroX(e), ny = centroY(e);
-                    toque("s", x, y, (nx - cx) / dp, (ny - cy) / dp);
+                    if (recentrar) { recentrar = false; cx = nx; cy = ny; break; }
+                    // un poco más que el dedo, como el trackpad del Mac
+                    toque("s", x, y, 1.6f * (nx - cx) / dp, 1.6f * (ny - cy) / dp);
                     cx = nx; cy = ny;
                 } else {
                     if (gesto == ESPERANDO && Math.hypot((x - x0) * w, (y - y0) * h) > 8 * dp) {
@@ -361,10 +395,22 @@ public class Principal extends Activity {
         titulo.setGravity(Gravity.CENTER);
         caja.addView(titulo);
         estado = texto("Esperando al Mac…", 16, 0xFFA7ADB8, false);
-        estado.setPadding(0, (int) (6 * dp), 0, (int) (24 * dp));
+        estado.setPadding(0, (int) (6 * dp), 0, (int) (20 * dp));
         estado.setGravity(Gravity.CENTER);
         caja.addView(estado);
 
+        LinearLayout modos = new LinearLayout(this);
+        modos.setOrientation(LinearLayout.HORIZONTAL);
+        botonCable = boton("Por cable", false, v -> cambiarModo(false));
+        botonWifi = boton("Por wifi", false, v -> cambiarModo(true));
+        LinearLayout.LayoutParams mitad = new LinearLayout.LayoutParams(0, (int) (48 * dp), 1);
+        LinearLayout.LayoutParams mitad2 = new LinearLayout.LayoutParams(0, (int) (48 * dp), 1);
+        mitad2.leftMargin = (int) (8 * dp);
+        modos.addView(botonCable, mitad);
+        modos.addView(botonWifi, mitad2);
+        caja.addView(modos, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView sep = texto("", 4, 0, false);
+        caja.addView(sep, new LinearLayout.LayoutParams(1, (int) (14 * dp)));
         caja.addView(boton("Enviar archivos al Mac", true, v -> elegirArchivos()));
         caja.addView(boton("Abrir Descargas", false, v -> abrirDescargas()));
         caja.addView(boton("Cerrar", false, v -> finish()));
@@ -407,6 +453,13 @@ public class Principal extends Activity {
         return b;
     }
 
+    private void pintarModo(Button b, boolean activo) {
+        if (b == null) return;
+        GradientDrawable g = (GradientDrawable) b.getBackground();
+        g.setColor(activo ? 0xFF3567E8 : 0xFF2A2E36);
+        b.setTextColor(Color.WHITE);
+    }
+
     private void mostrarVideo() {
         inicio.setVisibility(View.GONE);
         video.setVisibility(View.VISIBLE);
@@ -416,7 +469,11 @@ public class Principal extends Activity {
     private void mostrarInicio() {
         video.setVisibility(View.GONE);
         inicio.setVisibility(View.VISIBLE);
-        estado.setText("127.0.0.1".equals(host) ? "Esperando al Mac… (por cable)" : "Esperando al Mac… (wifi " + host + ")");
+        if (!porWifi) estado.setText("Esperando al Mac por cable…\nEn el Mac: ScreenMT → 2.ª pantalla → Encender");
+        else if (wifiHost.isEmpty()) estado.setText("Escanea con la cámara el código QR que muestra\nScreenMT en el Mac al encender por wifi");
+        else estado.setText("Esperando al Mac por wifi (" + wifiHost + ")…\nSi cambió el código, vuelve a escanearlo");
+        pintarModo(botonCable, !porWifi);
+        pintarModo(botonWifi, porWifi);
     }
 
     private void ajustarVideo() {

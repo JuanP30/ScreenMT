@@ -152,13 +152,14 @@ function vPantalla() {
   if (P.activa) {
     const wifi = !AJ.cable;
     let qr = '';
-    if (wifi && P.url && window.qrcode) { const q = qrcode(0, 'M'); q.addData(P.url); q.make(); qr = q.createSvgTag(4, 0); }
+    if (wifi && P.url) qr = codigoQR(P.url);
     return `
     <div class="caja ancha"><h3>Encendida</h3>
       <div class="fila"><span class="punto ok"></span><div class="n"><b>La tablet está mostrando tu Mac</b>
         <small>${AJ.extra ? 'Como pantalla extra' : 'Copia de la pantalla principal'} · ${wifi ? 'por wifi' : 'por cable'}${P.info ? ` · ${P.info.ancho} × ${P.info.alto} a ${P.info.fps} cuadros/s` : ''}</small></div></div>
       ${wifi ? `<div class="fila qr"><div class="cod">${qr}</div><div class="n"><b>Escanea el código con la cámara de la tablet</b>
-        <small>Se abre la app ScreenMT de la tablet y se conecta sola. Si no la tienes, instálala en Ajustes (por cable, una vez).</small></div></div>` : ''}
+        <small>Se abre la app ScreenMT de la tablet y se conecta sola. Si no la tienes, instálala en Ajustes (por cable, una vez).</small>
+        <button class="btn grande-qr" data-a="qr-grande">Mostrar el código grande</button></div></div>` : ''}
     </div>
     ${P.control === false ? `<div class="caja ancha"><h3>Manejar el Mac desde la tablet</h3>
       <button class="fila" data-a="permiso" data-p="control"><div class="n"><b>Falta el permiso de Accesibilidad</b>
@@ -219,8 +220,31 @@ function vAjustes() {
     ${elige('ancho', [[380, 'Angosta'], [440, 'Normal'], [560, 'Ancha']])}
   </div>
   <div class="caja ancha"><h3>Acerca de</h3>
-    <div class="fila"><div class="n"><b>ScreenMT 0.3.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
+    <div class="fila"><div class="n"><b>ScreenMT 0.4.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
   </div>`;
+}
+
+// código QR en SVG (escala con su caja, así sirve chico en la fila y gigante a pantalla completa)
+function codigoQR(texto) {
+  if (!window.qrcode) return '';
+  const q = qrcode(0, 'M');
+  q.addData(texto);
+  q.make();
+  return q.createSvgTag(8, 0);
+}
+
+// a pantalla completa: las cámaras de muchas tablets no enfocan un código pequeño
+function qrGrande() {
+  const P = V.pant || {};
+  if (!P.url) return;
+  const v = document.createElement('div');
+  v.className = 'velo-qr';
+  v.innerHTML = `<div class="qr-caja">${codigoQR(P.url)}<p>Apunta la cámara de la tablet aquí · toca o pulsa Esc para cerrar</p></div>`;
+  const cerrar = () => { v.remove(); document.removeEventListener('keydown', esc); };
+  const esc = (e) => e.key === 'Escape' && cerrar();
+  v.addEventListener('click', cerrar);
+  document.addEventListener('keydown', esc);
+  document.body.appendChild(v);
 }
 
 /* ---------- acciones ---------- */
@@ -323,6 +347,7 @@ document.addEventListener('click', async (ev) => {
     catch (e) { aviso(String(e), true); }
     V.instalando = false; pintar(false);
   }
+  else if (a === 'qr-grande') qrGrande();
   else if (a === 'permiso') invoke('abrir_permiso', { cual: t.dataset.p });
   else if (a === 'carpeta') invoke('abrir_carpeta', { destino: AJ.destino });
   else if (a === 'destino') {
