@@ -329,8 +329,8 @@ public class Principal extends Activity {
                 if (gesto == DESPLAZANDO) {
                     float nx = centroX(e), ny = centroY(e);
                     if (recentrar) { recentrar = false; cx = nx; cy = ny; break; }
-                    // un poco más que el dedo, como el trackpad del Mac
-                    toque("s", x, y, 1.6f * (nx - cx) / dp, 1.6f * (ny - cy) / dp);
+                    // lo que se movió el dedo; la velocidad y la dirección las ajusta el Mac
+                    toque("s", x, y, (nx - cx) / dp, (ny - cy) / dp);
                     cx = nx; cy = ny;
                 } else {
                     if (gesto == ESPERANDO && Math.hypot((x - x0) * w, (y - y0) * h) > 8 * dp) {

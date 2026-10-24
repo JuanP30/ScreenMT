@@ -8,7 +8,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 // ajustes: comodidad de este Mac, nada importante se guarda aquí
 const AJ = Object.assign(
-  { tamano: 1400, apagar: false, sinSonido: false, destino: '', ancho: 440, cable: true, extra: true, calidad: 'nitida', espacio: 'grande' },
+  { tamano: 1400, apagar: false, sinSonido: false, destino: '', ancho: 440, cable: true, extra: true, calidad: 'nitida', espacio: 'grande', desplazar: 'normal', invertir: false },
   leer()
 );
 function leer() { try { return JSON.parse(localStorage.getItem('screenmt') || '{}'); } catch { return {}; } }
@@ -204,7 +204,12 @@ function vPantalla() {
       medio: 'Un punto intermedio: caben más cosas sin que la letra quede muy pequeña.',
       maximo: 'Un punto por cada píxel: cabe mucho más, con letra pequeña.',
     }[AJ.espacio] || ''}</p>
-  </div>` : ''}`;
+  </div>` : ''}
+  <div class="caja ancha"><h3>Desplazar con dos dedos</h3>
+    ${elige('desplazar', [['lenta', 'Lenta'], ['normal', 'Normal'], ['rapida', 'Rápida']])}
+    ${sw('invertir', 'Invertir la dirección', 'Si al subir los dedos la página baja, actívalo')}
+  </div>
+  <p class="nota">Los cambios valen la próxima vez que enciendas la segunda pantalla.</p>`;
 }
 
 function vAjustes() {
@@ -220,7 +225,7 @@ function vAjustes() {
     ${elige('ancho', [[380, 'Angosta'], [440, 'Normal'], [560, 'Ancha']])}
   </div>
   <div class="caja ancha"><h3>Acerca de</h3>
-    <div class="fila"><div class="n"><b>ScreenMT 0.4.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
+    <div class="fila"><div class="n"><b>ScreenMT 0.5.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
   </div>`;
 }
 
@@ -333,7 +338,7 @@ document.addEventListener('click', async (ev) => {
   else if (a === 'pant-encender') {
     V.encendiendo = true; V.pantErr = null; pintar(false);
     try {
-      const r = await invoke('pantalla_encender', { cable: AJ.cable, extra: AJ.extra, calidad: AJ.calidad, espacio: AJ.espacio });
+      const r = await invoke('pantalla_encender', { cable: AJ.cable, extra: AJ.extra, calidad: AJ.calidad, espacio: AJ.espacio, desplazar: AJ.desplazar, invertir: AJ.invertir });
       V.pant = { activa: true, url: r.url, control: r.control };
       aviso(AJ.cable ? 'Listo: mira la tablet.' : 'Listo: abre la dirección en la tablet.');
     } catch (e) { V.pantErr = e; }

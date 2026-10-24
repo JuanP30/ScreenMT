@@ -148,7 +148,7 @@ Arriba en la app ScreenMT de la tablet hay dos botones: **«Por cable»** y **«
 | Tocar | Clic |
 | Tocar y mover | Arrastrar |
 | Dejar el dedo quieto | Clic derecho |
-| Dos dedos a la vez, arriba o abajo (o a los lados) | Desplazar, como en el trackpad |
+| Dos dedos a la vez, arriba o abajo (o a los lados) | Desplazar, como en el trackpad. En *2.ª pantalla* eliges la velocidad (Lenta, Normal, Rápida) y si quieres invertir la dirección |
 
 Para esto macOS pide el permiso de **Accesibilidad** (ver [permisos](#8-permisos-que-pide-macos)). Sin él, la tablet solo muestra la pantalla.
 

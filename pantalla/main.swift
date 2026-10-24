@@ -44,6 +44,8 @@ let (escala, mbps) = niveles[op["calidad"] ?? ""] ?? niveles["nitida"]!
 // tamaño de lo que se ve en la pantalla extra: puntos de macOS por píxel de la tablet
 //   grande = 1280×800 puntos en una tablet de 2560×1600 · medio = 1600×1000 · maximo = 2560×1600 (letra pequeña)
 let espacio = op["espacio"] ?? "grande"
+// desplazar con dos dedos: cuánto se mueve por cada punto del dedo, y si va al revés
+let factorDesplazar = (["lenta": 0.35, "normal": 0.6, "rapida": 1.0][op["desplazar"] ?? "normal"] ?? 0.6) * (op["invertir"] == "si" ? -1 : 1)
 var fps = 60
 // con «nítida» y «máxima» manda el tamaño; con «fluida» y «equilibrada», los 60 cuadros por segundo
 let preferencia = (op["calidad"] == "fluida" || op["calidad"] == "media") ? "fluidez" : "nitidez"
@@ -290,6 +292,7 @@ func ipLocal() -> String? {
 
 /* ---------- toques de la tablet → ratón del Mac ---------- */
 var abajo = false
+var restoX = 0.0, restoY = 0.0
 func punto(_ x: Double, _ y: Double) -> CGPoint {
     let b = CGDisplayBounds(idPantalla)
     return CGPoint(x: b.minX + max(0, min(1, x)) * b.width, y: b.minY + max(0, min(1, y)) * b.height)
@@ -307,7 +310,12 @@ func evento(_ j: [String: Any]) {
     case "r": raton(.mouseMoved); raton(.rightMouseDown, .right); raton(.rightMouseUp, .right)
     case "s":
         raton(.mouseMoved)
-        let dy = Int32(j["dy"] as? Double ?? 0), dx = Int32(j["dx"] as? Double ?? 0)
+        // se acumulan los restos para que los movimientos lentos no se pierdan al redondear
+        restoY += (j["dy"] as? Double ?? 0) * factorDesplazar
+        restoX += (j["dx"] as? Double ?? 0) * factorDesplazar
+        let dy = Int32(restoY.rounded(.towardZero)), dx = Int32(restoX.rounded(.towardZero))
+        restoY -= Double(dy); restoX -= Double(dx)
+        if dy == 0 && dx == 0 { return }
         CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)?.post(tap: .cghidEventTap)
     default: break
     }

@@ -226,7 +226,7 @@ fn escuchar_archivos() {
 const PUERTO: u16 = 8730;
 // la app de la tablet (carpeta android/); subir APP_VERSION junto con versionCode para que se actualice sola
 const APP_TABLET: &str = "io.github.juanp30.screenmt";
-const APP_VERSION: u32 = 5;
+const APP_VERSION: u32 = 6;
 
 fn recurso(nombre: &str) -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("../Resources").join(nombre))).unwrap_or_default()
@@ -283,7 +283,7 @@ fn apagar_todo(p: &mut Pantalla) {
 }
 
 #[tauri::command]
-async fn pantalla_encender(cable: bool, extra: bool, calidad: String, espacio: String) -> Result<serde_json::Value, serde_json::Value> {
+async fn pantalla_encender(cable: bool, extra: bool, calidad: String, espacio: String, desplazar: String, invertir: bool) -> Result<serde_json::Value, serde_json::Value> {
     use std::io::{BufRead, BufReader};
     let falla = |m: &str| serde_json::json!({ "error": m, "codigo": "error" });
     apagar_todo(&mut PANTALLA.lock().unwrap());
@@ -293,7 +293,7 @@ async fn pantalla_encender(cable: bool, extra: bool, calidad: String, espacio: S
     }
     let (ancho, alto) = if conectada { tamano_tablet() } else { (2560, 1600) };
     let mut hijo = Command::new(ayudante())
-        .args(["--modo", if extra { "extra" } else { "copia" }, "--red", if cable { "cable" } else { "wifi" }, "--calidad", &calidad, "--espacio", &espacio])
+        .args(["--modo", if extra { "extra" } else { "copia" }, "--red", if cable { "cable" } else { "wifi" }, "--calidad", &calidad, "--espacio", &espacio, "--desplazar", &desplazar, "--invertir", if invertir { "si" } else { "no" }])
         .args(["--ancho", &ancho.to_string(), "--alto", &alto.to_string(), "--puerto", &PUERTO.to_string()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
