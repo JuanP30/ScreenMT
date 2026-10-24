@@ -226,7 +226,7 @@ fn escuchar_archivos() {
 const PUERTO: u16 = 8730;
 // la app de la tablet (carpeta android/); subir APP_VERSION junto con versionCode para que se actualice sola
 const APP_TABLET: &str = "io.github.juanp30.screenmt";
-const APP_VERSION: u32 = 6;
+const APP_VERSION: u32 = 7;
 
 fn recurso(nombre: &str) -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("../Resources").join(nombre))).unwrap_or_default()
@@ -355,6 +355,14 @@ fn pantalla_estado() -> serde_json::Value {
     serde_json::json!({ "activa": viva, "url": p.url, "error": p.error, "info": p.info, "control": p.control })
 }
 
+// BlackHole es el micrófono virtual que hace falta para usar el micrófono de la tablet en el Mac
+#[tauri::command]
+fn hay_blackhole() -> bool {
+    ["/Library/Audio/Plug-Ins/HAL/BlackHole2ch.driver", "/Library/Audio/Plug-Ins/HAL/BlackHole16ch.driver"]
+        .iter()
+        .any(|p| std::path::Path::new(p).exists())
+}
+
 #[tauri::command]
 async fn instalar_app_tablet() -> Result<(), String> {
     if adb(&["get-state"]).as_deref() != Ok("device") { return Err("Conecta la tablet por cable.".into()); }
@@ -379,7 +387,7 @@ fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             estado, ver_tablet, listar, enviar, traer, abrir_carpeta, fijar_destino,
-            pantalla_encender, pantalla_apagar, pantalla_estado, abrir_permiso, instalar_app_tablet
+            pantalla_encender, pantalla_apagar, pantalla_estado, abrir_permiso, instalar_app_tablet, hay_blackhole
         ])
         .build(tauri::generate_context!())
         .expect("no pudo arrancar ScreenMT")

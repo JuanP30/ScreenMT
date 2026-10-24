@@ -164,11 +164,13 @@ function vPantalla() {
     ${P.control === false ? `<div class="caja ancha"><h3>Manejar el Mac desde la tablet</h3>
       <button class="fila" data-a="permiso" data-p="control"><div class="n"><b>Falta el permiso de Accesibilidad</b>
         <small>Actívalo para ScreenMT y vuelve a encender. Mientras tanto la tablet solo muestra.</small></div><span class="flecha">›</span></button></div>` : ''}
-    <div class="caja ancha cuadricula"><h3>En la tablet</h3>
+    <div class="caja ancha cuadricula"><h3>En la tablet (modo «Un dedo», el de siempre)</h3>
       <div class="fila"><div class="n"><b>Tocar</b><small>Clic</small></div></div>
-      <div class="fila"><div class="n"><b>Tocar y mover</b><small>Arrastrar</small></div></div>
-      <div class="fila"><div class="n"><b>Dejar el dedo quieto</b><small>Clic derecho</small></div></div>
-      <div class="fila"><div class="n"><b>Dos dedos</b><small>Desplazar</small></div></div>
+      <div class="fila"><div class="n"><b>Deslizar un dedo</b><small>Desplazar, con inercia al soltar rápido</small></div></div>
+      <div class="fila"><div class="n"><b>Dejar el dedo quieto y mover</b><small>Arrastrar o seleccionar (vibra al empezar)</small></div></div>
+      <div class="fila"><div class="n"><b>Tocar con dos dedos</b><small>Clic derecho</small></div></div>
+      <div class="fila"><div class="n"><b>Pellizcar</b><small>Acercar o alejar (⌘+ y ⌘−)</small></div></div>
+      <div class="fila"><div class="n"><b>Barra de la derecha (⋮)</b><small>Teclado, apps, ventanas, copiar, pegar, bocinas, micrófono</small></div></div>
     </div>
     ${AJ.extra ? `<button class="caja fila sola ancha" data-a="permiso" data-p="pantallas"><div class="n"><b>Ordenar las pantallas</b>
       <small>Dile al Mac si la tablet queda a la izquierda o a la derecha de tu monitor</small></div><span class="flecha">›</span></button>` : ''}`;
@@ -205,9 +207,17 @@ function vPantalla() {
       maximo: 'Un punto por cada píxel: cabe mucho más, con letra pequeña.',
     }[AJ.espacio] || ''}</p>
   </div>` : ''}
-  <div class="caja ancha"><h3>Desplazar con dos dedos</h3>
+  <div class="caja ancha"><h3>Velocidad al desplazar</h3>
     ${elige('desplazar', [['lenta', 'Lenta'], ['normal', 'Normal'], ['rapida', 'Rápida']])}
     ${sw('invertir', 'Invertir la dirección', 'Si al subir los dedos la página baja, actívalo')}
+    <p class="explica">Además acelera solo: despacio se mueve poco y con precisión; rápido se mueve mucho.</p>
+  </div>
+  <div class="caja ancha"><h3>Bocinas y micrófono de la tablet</h3>
+    <div class="fila"><div class="n"><b>Se prenden en la tablet, en la barra de la derecha (⋮)</b>
+      <small>Con «Bocinas» el sonido del Mac sale por la tablet y el Mac se silencia mientras tanto.</small></div></div>
+    <div class="fila"><div class="n"><b>${V.blackhole ? 'Micrófono listo (BlackHole instalado)' : 'Para el micrófono falta BlackHole'}</b>
+      <small>${V.blackhole ? 'En Zoom, Claude u otra app del Mac elige «BlackHole 2ch» como micrófono.'
+        : 'Es un micrófono virtual gratuito. En la Terminal del Mac: <code>brew install blackhole-2ch</code> (pide tu contraseña). Luego elige «BlackHole 2ch» como micrófono en la app del Mac.'}</small></div></div>
   </div>
   <p class="nota">Los cambios valen la próxima vez que enciendas la segunda pantalla.</p>`;
 }
@@ -225,7 +235,7 @@ function vAjustes() {
     ${elige('ancho', [[380, 'Angosta'], [440, 'Normal'], [560, 'Ancha']])}
   </div>
   <div class="caja ancha"><h3>Acerca de</h3>
-    <div class="fila"><div class="n"><b>ScreenMT 0.5.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
+    <div class="fila"><div class="n"><b>ScreenMT 0.6.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
   </div>`;
 }
 
@@ -293,6 +303,7 @@ document.addEventListener('click', async (ev) => {
     V.tab = t.dataset.tab;
     pintar();
     if (V.tab === 'archivos' && V.estado?.conectada && !V.archivos) cargarArchivos();
+    if (V.tab === 'pantalla' && T) invoke('hay_blackhole').then((b) => { if (b !== V.blackhole) { V.blackhole = b; pintar(false); } });
     return;
   }
   const a = t.dataset.a;
@@ -381,6 +392,7 @@ function demo(cmd) {
     pantalla_estado: { activa: false, url: '' },
     estado: { conectada: true, nombre: 'Lenovo TB336FU', bateria: 83, cargando: true, viendo: false, recibidos: [] },
     fijar_destino: null,
+    hay_blackhole: false,
     listar: [
       { ruta: 'Download/Factura-octubre.pdf', bytes: 245760, fecha: ahora - 600 },
       { ruta: 'DCIM/Camera/IMG_20261023_1630.jpg', bytes: 3250000, fecha: ahora - 3600 },

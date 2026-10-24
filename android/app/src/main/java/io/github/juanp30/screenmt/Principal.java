@@ -57,6 +57,9 @@ import java.util.concurrent.TimeUnit;
  * en H.264 por TCP (por cable con «adb reverse», así que es «localhost») y se decodifica por hardware
  * con MediaCodec; los toques vuelven por la misma conexión. «Atrás» cierra la app.
  *
+ * Ayudas táctiles (barra a la derecha): teclado con las teclas del Mac, modo de un dedo, cambiar de app,
+ * ventanas, copiar/pegar/deshacer, y los interruptores de bocinas y micrófono.
+ *
  * Protocolo: ver pantalla/main.swift en el Mac.
  */
 public class Principal extends Activity {
@@ -78,11 +81,24 @@ public class Principal extends Activity {
     private int puerto = 8730;
     private int ancho = 16, alto = 10;
     private Thread conexion;
+    private final Sonido sonido = new Sonido();
+    private Teclado teclado;
+    private LinearLayout panel, botonesPanel;
+    private SharedPreferences pref;
+    // ajustes de la barra: un dedo desplaza (como el celular) o arrastra (como el ratón), bocinas y micrófono
+    private boolean modoToque = true, altavoz = false, mic = false;
+    private Button bModo, bAltavoz, bMic;
+    private static final int PERMISO_MIC = 2;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+        pref = getSharedPreferences("screenmt", MODE_PRIVATE);
+        modoToque = pref.getBoolean("modoToque", true);
+        altavoz = pref.getBoolean("altavoz", false);
+        mic = pref.getBoolean("mic", false) && tienePermisoMic();
         armarVista();
         leerDestino(getIntent());
         conexion = new Thread(this::conectarSiempre, "conexion");
@@ -183,6 +199,9 @@ public class Principal extends Activity {
         ancho = t[0];
         alto = t[1];
         mandar(11, (t[0] + " " + t[1] + " " + t[2]).getBytes(StandardCharsets.UTF_8));
+        mandarOpciones();
+        sonido.altavoz(altavoz);
+        if (mic) sonido.microfono(true, pcm -> mandar(12, pcm));
         s.setSoTimeout(0); // con la pantalla quieta pueden pasar ratos sin cuadros
 
         superficie = new CountDownLatch(1);
@@ -204,6 +223,8 @@ public class Principal extends Activity {
                 int n = largo - 1;
                 if (n > buf.length) buf = new byte[n];
                 in.readFully(buf, 0, n);
+                if (tipo == 4) { sonido.recibir(java.util.Arrays.copyOf(buf, n)); continue; }
+                if (tipo == 5) { avisoDelMac(new String(buf, 0, n, StandardCharsets.UTF_8)); continue; }
                 if (tipo < 1 || tipo > 3) continue;
                 int i = dec.dequeueInputBuffer(200_000);
                 if (i < 0) continue;
@@ -213,6 +234,7 @@ public class Principal extends Activity {
                 dec.queueInputBuffer(i, 0, n, System.nanoTime() / 1000, tipo == 1 ? MediaCodec.BUFFER_FLAG_CODEC_CONFIG : 0);
             }
         } finally {
+            sonido.apagarTodo();
             pintor.interrupt();
             try { dec.stop(); } catch (Exception ignorada) { }
             dec.release();
@@ -282,6 +304,25 @@ public class Principal extends Activity {
         mandar(10, j.getBytes(StandardCharsets.UTF_8));
     }
 
+    private void mandarOpciones() {
+        mandar(13, ("{\"altavoz\":" + altavoz + ",\"mic\":" + mic + "}").getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void avisoDelMac(String json) {
+        String t;
+        try { t = new org.json.JSONObject(json).optString("aviso", ""); } catch (Exception e) { return; }
+        if (t.isEmpty()) return;
+        ui.post(() -> Toast.makeText(this, t, Toast.LENGTH_LONG).show());
+    }
+
+    private void texto(String s) {
+        mandar(10, ("{\"t\":\"texto\",\"s\":" + org.json.JSONObject.quote(s) + "}").getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void tecla(int k, String mods) {
+        mandar(10, ("{\"t\":\"tecla\",\"k\":" + k + ",\"m\":\"" + mods + "\"}").getBytes(StandardCharsets.UTF_8));
+    }
+
     private void cerrarSocket() {
         Socket s = socket;
         socket = null;
@@ -289,15 +330,24 @@ public class Principal extends Activity {
         if (s != null) try { s.close(); } catch (Exception ignorada) { }
     }
 
-    /* ---------------- toques: tocar = clic, mover = arrastrar, quieto = clic derecho, dos dedos = desplazar ---------------- */
+    /* ---------------- toques ----------------
+     * Modo de un dedo (por defecto, como el celular): deslizar = desplazar (con inercia), tocar = clic,
+     *   dejar el dedo quieto y luego moverlo = arrastrar o seleccionar.
+     * Modo ratón: tocar = clic, mover = arrastrar, dejar el dedo quieto = clic derecho.
+     * En los dos: dos dedos = desplazar, tocar con dos dedos = clic derecho, pellizcar = zoom.
+     * El desplazamiento acelera: despacio se mueve poco (preciso), rápido se mueve mucho.
+     */
 
-    private static final int NADA = 0, ESPERANDO = 1, ARRASTRANDO = 2, LARGO = 3, DESPLAZANDO = 4;
+    private static final int NADA = 0, ESPERANDO = 1, ARRASTRANDO = 2, LARGO = 3, DESPLAZANDO = 4, DOS = 5, PELLIZCO = 6;
     private int gesto = NADA;
-    private float x0, y0, cx, cy;
-    private boolean recentrar;
+    private float x0, y0, cx, cy, ux, uy, dist0, distZoom;
+    private long ut, t2;
+    private boolean recentrar, dosMovio;
+    private android.view.VelocityTracker vt;
     private final Runnable arranque = () -> {
         if (gesto == ESPERANDO) { gesto = ARRASTRANDO; toque("d", x0, y0, 0, 0); }
     };
+    // modo ratón: quieto = clic derecho
     private final Runnable largo = () -> {
         if (gesto == ESPERANDO || gesto == ARRASTRANDO) {
             if (gesto == ARRASTRANDO) toque("u", x0, y0, 0, 0);
@@ -305,54 +355,135 @@ public class Principal extends Activity {
             toque("r", x0, y0, 0, 0);
         }
     };
+    // modo de un dedo: quieto = empezar a arrastrar (con una vibración corta para avisar)
+    private final Runnable sostener = () -> {
+        if (gesto == ESPERANDO) {
+            gesto = ARRASTRANDO;
+            video.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            toque("d", x0, y0, 0, 0);
+        }
+    };
+
+    // velocidad del dedo (dp/ms) → cuánto multiplicar: 0,35 muy despacio … 2,8 muy rápido
+    private void desplazar(float dxPx, float dyPx, long dtMs, float x, float y) {
+        float dp = getResources().getDisplayMetrics().density;
+        float dx = dxPx / dp, dy = dyPx / dp;
+        float v = (float) Math.hypot(dx, dy) / Math.max(1, dtMs);
+        float g = Math.max(0.35f, Math.min(2.8f, 0.35f + 0.75f * v));
+        toque("s", x, y, dx * g, dy * g);
+    }
+
+    // al soltar rápido sigue un poco, frenando, como en el celular
+    private float ivx, ivy, ix, iy;
+    private final Runnable inercia = new Runnable() {
+        public void run() {
+            ivx *= 0.92f; ivy *= 0.92f;
+            if (Math.hypot(ivx, ivy) < 40) return;
+            toque("s", ix, iy, ivx * 0.016f, ivy * 0.016f);
+            ui.postDelayed(this, 16);
+        }
+    };
+    private void lanzar(float x, float y) {
+        if (vt == null) return;
+        float dp = getResources().getDisplayMetrics().density;
+        vt.computeCurrentVelocity(1000);
+        float vx = vt.getXVelocity() / dp, vy = vt.getYVelocity() / dp;
+        if (Math.hypot(vx, vy) < 350) return;
+        ivx = vx * 1.2f; ivy = vy * 1.2f; ix = x; iy = y;
+        ui.postDelayed(inercia, 16);
+    }
 
     private boolean alTocar(View v, MotionEvent e) {
         float w = v.getWidth(), h = v.getHeight(), dp = getResources().getDisplayMetrics().density;
         float x = e.getX() / w, y = e.getY() / h;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                x0 = x; y0 = y; gesto = ESPERANDO;
-                // se espera un instante para saber si llega un segundo dedo antes de apretar el botón
-                ui.postDelayed(arranque, 130);
-                ui.postDelayed(largo, 650);
+                ui.removeCallbacks(inercia);
+                if (vt != null) vt.recycle();
+                vt = android.view.VelocityTracker.obtain();
+                vt.addMovement(e);
+                x0 = x; y0 = y; ux = e.getX(); uy = e.getY(); ut = e.getEventTime();
+                gesto = ESPERANDO;
+                if (modoToque) ui.postDelayed(sostener, 450);
+                else {
+                    // se espera un instante para saber si llega un segundo dedo antes de apretar el botón
+                    ui.postDelayed(arranque, 130);
+                    ui.postDelayed(largo, 650);
+                }
                 break;
             case MotionEvent.ACTION_POINTER_DOWN:
                 if (gesto == ARRASTRANDO) toque("u", x, y, 0, 0);
-                ui.removeCallbacks(arranque); ui.removeCallbacks(largo);
-                gesto = DESPLAZANDO;
-                cx = centroX(e); cy = centroY(e);
+                ui.removeCallbacks(arranque); ui.removeCallbacks(largo); ui.removeCallbacks(sostener);
+                gesto = DOS;
+                t2 = e.getEventTime();
+                dosMovio = false;
+                cx = centroX(e); cy = centroY(e); ut = e.getEventTime();
+                dist0 = distZoom = distancia(e);
                 break;
             case MotionEvent.ACTION_POINTER_UP:
                 recentrar = true; // con un dedo menos el centro salta: se toma de nuevo antes de seguir
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (gesto == DESPLAZANDO) {
-                    float nx = centroX(e), ny = centroY(e);
-                    if (recentrar) { recentrar = false; cx = nx; cy = ny; break; }
-                    // lo que se movió el dedo; la velocidad y la dirección las ajusta el Mac
-                    toque("s", x, y, (nx - cx) / dp, (ny - cy) / dp);
-                    cx = nx; cy = ny;
+                vt.addMovement(e);
+                if (gesto == DOS || gesto == PELLIZCO || (gesto == DESPLAZANDO && e.getPointerCount() > 1)) {
+                    float nx = centroX(e), ny = centroY(e), d = distancia(e);
+                    if (recentrar) { recentrar = false; cx = nx; cy = ny; ut = e.getEventTime(); distZoom = d; break; }
+                    if (gesto == DOS && dist0 > 0 && Math.abs(d / dist0 - 1) > 0.12f) { gesto = PELLIZCO; distZoom = d; }
+                    if (gesto == PELLIZCO) {
+                        if (d / distZoom > 1.15f) { mandarZoom(1); distZoom = d; }
+                        else if (d / distZoom < 0.87f) { mandarZoom(-1); distZoom = d; }
+                        break;
+                    }
+                    if (Math.hypot(nx - cx, ny - cy) > 2 * dp) dosMovio = true;
+                    desplazar(nx - cx, ny - cy, e.getEventTime() - ut, x, y);
+                    cx = nx; cy = ny; ut = e.getEventTime();
+                    break;
+                }
+                boolean seMovio = Math.hypot((x - x0) * w, (y - y0) * h) > 8 * dp;
+                if (modoToque) {
+                    if (gesto == ESPERANDO && seMovio) {
+                        ui.removeCallbacks(sostener);
+                        gesto = DESPLAZANDO;
+                    }
+                    if (gesto == DESPLAZANDO) desplazar(e.getX() - ux, e.getY() - uy, e.getEventTime() - ut, x, y);
+                    else if (gesto == ARRASTRANDO) toque("m", x, y, 0, 0);
                 } else {
-                    if (gesto == ESPERANDO && Math.hypot((x - x0) * w, (y - y0) * h) > 8 * dp) {
+                    if (gesto == ESPERANDO && seMovio) {
                         ui.removeCallbacks(arranque); gesto = ARRASTRANDO; toque("d", x0, y0, 0, 0);
                     }
                     if (gesto == ARRASTRANDO) {
-                        if (Math.hypot((x - x0) * w, (y - y0) * h) > 8 * dp) ui.removeCallbacks(largo);
+                        if (seMovio) ui.removeCallbacks(largo);
                         toque("m", x, y, 0, 0);
                     }
                 }
+                ux = e.getX(); uy = e.getY(); ut = e.getEventTime();
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                ui.removeCallbacks(arranque); ui.removeCallbacks(largo);
+                ui.removeCallbacks(arranque); ui.removeCallbacks(largo); ui.removeCallbacks(sostener);
                 if (gesto == ESPERANDO) { toque("d", x0, y0, 0, 0); toque("u", x0, y0, 0, 0); }
                 else if (gesto == ARRASTRANDO) toque("u", x, y, 0, 0);
+                else if (gesto == DESPLAZANDO) lanzar(x, y);
+                else if (gesto == DOS) {
+                    // dos dedos que tocan y se levantan rápido, sin moverse: clic derecho
+                    if (!dosMovio && e.getEventTime() - t2 < 350) toque("r", x0, y0, 0, 0);
+                    else lanzar(x, y);
+                }
                 gesto = NADA;
                 break;
             default:
                 break;
         }
         return true;
+    }
+
+    private void mandarZoom(int dir) {
+        mandar(10, ("{\"t\":\"zoom\",\"dir\":" + dir + "}").getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static float distancia(MotionEvent e) {
+        if (e.getPointerCount() < 2) return 0;
+        return (float) Math.hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1));
     }
 
     private static float centroX(MotionEvent e) { float s = 0; for (int i = 0; i < e.getPointerCount(); i++) s += e.getX(i); return s / e.getPointerCount(); }
@@ -422,7 +553,118 @@ public class Principal extends Activity {
 
         inicio = caja;
         raiz.addView(caja, new FrameLayout.LayoutParams((int) (420 * dp), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+
+        teclado = new Teclado(this, new Teclado.Envio() {
+            public void texto(String s) { Principal.this.texto(s); }
+            public void tecla(int k, String m) { Principal.this.tecla(k, m); }
+        });
+        raiz.addView(teclado.campo, new FrameLayout.LayoutParams(1, 1, Gravity.TOP | Gravity.START));
+        raiz.addView(teclado.barra, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
+        // la barra de teclas se sube encima del teclado de Android
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+            raiz.setOnApplyWindowInsetsListener((v, ins) -> {
+                teclado.barra.setTranslationY(-ins.getInsets(WindowInsets.Type.ime()).bottom);
+                return ins;
+            });
+        }
+        armarPanel(dp);
         setContentView(raiz);
+    }
+
+    /* ---------------- barra de ayudas (a la derecha, se esconde) ---------------- */
+
+    private void armarPanel(float dp) {
+        panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.HORIZONTAL);
+        panel.setGravity(Gravity.CENTER_VERTICAL);
+        botonesPanel = new LinearLayout(this);
+        botonesPanel.setOrientation(LinearLayout.VERTICAL);
+        botonesPanel.setPadding((int) (6 * dp), (int) (6 * dp), (int) (6 * dp), (int) (6 * dp));
+        GradientDrawable f = new GradientDrawable();
+        f.setColor(0xE6181B21);
+        f.setCornerRadii(new float[] {14 * dp, 14 * dp, 0, 0, 0, 0, 14 * dp, 14 * dp});
+        botonesPanel.setBackground(f);
+
+        Button asa = ayuda("⋮", "", v -> botonesPanel.setVisibility(botonesPanel.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE), dp);
+        GradientDrawable fa = new GradientDrawable();
+        fa.setColor(0xB3181B21);
+        fa.setCornerRadii(new float[] {10 * dp, 10 * dp, 0, 0, 0, 0, 10 * dp, 10 * dp});
+        asa.setBackground(fa);
+        asa.setLayoutParams(new LinearLayout.LayoutParams((int) (26 * dp), (int) (64 * dp)));
+
+        botonesPanel.addView(ayuda("⌨", "Teclado", v -> { if (teclado.visible()) teclado.ocultar(); else teclado.mostrar(); }, dp));
+        bModo = ayuda("", "", v -> { modoToque = !modoToque; pref.edit().putBoolean("modoToque", modoToque).apply(); pintarPanel(); }, dp);
+        botonesPanel.addView(bModo);
+        botonesPanel.addView(ayuda("⇥", "Apps", v -> tecla(48, "cmd"), dp));
+        botonesPanel.addView(ayuda("▦", "Ventanas", v -> tecla(126, "ctrl"), dp));
+        botonesPanel.addView(ayuda("⎘", "Copiar", v -> tecla(8, "cmd"), dp));
+        botonesPanel.addView(ayuda("⎗", "Pegar", v -> tecla(9, "cmd"), dp));
+        botonesPanel.addView(ayuda("↶", "Deshacer", v -> tecla(6, "cmd"), dp));
+        bAltavoz = ayuda("", "", v -> cambiarAltavoz(), dp);
+        botonesPanel.addView(bAltavoz);
+        bMic = ayuda("", "", v -> cambiarMic(), dp);
+        botonesPanel.addView(bMic);
+        botonesPanel.addView(ayuda("✕", "Salir", v -> finish(), dp));
+
+        panel.addView(asa);
+        panel.addView(botonesPanel);
+        panel.setVisibility(View.GONE);
+        raiz.addView(panel, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.CENTER_VERTICAL));
+        pintarPanel();
+    }
+
+    private Button ayuda(String icono, String nombre, View.OnClickListener l, float dp) {
+        Button b = new Button(this);
+        b.setAllCaps(false);
+        b.setTextColor(Color.WHITE);
+        b.setTextSize(11);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(0, 0, 0, 0);
+        b.setText(nombre.isEmpty() ? icono : icono + "\n" + nombre);
+        b.setBackground(null);
+        b.setOnClickListener(l);
+        b.setLayoutParams(new LinearLayout.LayoutParams((int) (64 * dp), (int) (52 * dp)));
+        return b;
+    }
+
+    private void pintarPanel() {
+        if (bModo == null) return;
+        bModo.setText(modoToque ? "☝\nUn dedo" : "⌖\nRatón");
+        bAltavoz.setText(altavoz ? "🔊\nBocinas sí" : "🔇\nBocinas no");
+        bMic.setText(mic ? "🎤\nMicro sí" : "🎙\nMicro no");
+        bAltavoz.setAlpha(altavoz ? 1f : 0.6f);
+        bMic.setAlpha(mic ? 1f : 0.6f);
+    }
+
+    private void cambiarAltavoz() {
+        altavoz = !altavoz;
+        pref.edit().putBoolean("altavoz", altavoz).apply();
+        sonido.altavoz(altavoz);
+        mandarOpciones();
+        pintarPanel();
+    }
+
+    private void cambiarMic() {
+        if (!mic && !tienePermisoMic()) {
+            requestPermissions(new String[] {android.Manifest.permission.RECORD_AUDIO}, PERMISO_MIC);
+            return;
+        }
+        mic = !mic;
+        pref.edit().putBoolean("mic", mic).apply();
+        sonido.microfono(mic, pcm -> mandar(12, pcm));
+        mandarOpciones();
+        pintarPanel();
+    }
+
+    private boolean tienePermisoMic() {
+        return checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int pedido, String[] permisos, int[] r) {
+        super.onRequestPermissionsResult(pedido, permisos, r);
+        if (pedido == PERMISO_MIC && r.length > 0 && r[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) cambiarMic();
     }
 
     private TextView texto(String s, int sp, int color, boolean negrita) {
@@ -463,11 +705,14 @@ public class Principal extends Activity {
     private void mostrarVideo() {
         inicio.setVisibility(View.GONE);
         video.setVisibility(View.VISIBLE);
+        panel.setVisibility(View.VISIBLE);
         ajustarVideo();
     }
 
     private void mostrarInicio() {
         video.setVisibility(View.GONE);
+        panel.setVisibility(View.GONE);
+        if (teclado.visible()) teclado.ocultar();
         inicio.setVisibility(View.VISIBLE);
         if (!porWifi) estado.setText("Esperando al Mac por cable…");
         else if (wifiHost.isEmpty()) estado.setText("Escanea con la cámara el código QR que muestra ScreenMT en el Mac");
@@ -590,6 +835,7 @@ public class Principal extends Activity {
     @Override
     protected void onDestroy() {
         vivo = false;
+        sonido.apagarTodo();
         cerrarSocket();
         salida.shutdownNow();
         super.onDestroy();

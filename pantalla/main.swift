@@ -10,12 +10,15 @@
 // local y exige la clave aleatoria. Escribe su estado en stdout como líneas JSON.
 //
 // Protocolo (cada paquete): [u32 largo, big endian][u8 tipo][datos]   (largo = 1 + datos)
-//   tablet → Mac   0 hola (la clave, texto)   11 ajuste ("ancho alto fps": lo máximo que decodifica)   10 toque (JSON)
+//   tablet → Mac   0 hola (la clave, texto)   11 ajuste ("ancho alto fps": lo máximo que decodifica)
+//                  10 toque, tecla o texto (JSON)   12 micrófono (PCM 16 bits mono 48 kHz)   13 opciones (JSON)
 //   Mac → tablet   0 bienvenida ("ancho alto nitidez|fluidez")   1 SPS+PPS (Annex B)   2 cuadro   3 cuadro clave
+//                  4 sonido (PCM 16 bits estéreo 48 kHz)   5 aviso (JSON)
 //
 // Cada tablet tiene un tope de decodificación (p. ej. MediaTek: 2560×1440, menos cuadros a más tamaño):
 // el Mac propone su tamaño, la tablet responde el mayor que puede mostrar y el Mac se ajusta a eso.
 import AppKit
+import IOKit.pwr_mgt
 import Network
 import ScreenCaptureKit
 import VideoToolbox
@@ -45,7 +48,8 @@ let (escala, mbps) = niveles[op["calidad"] ?? ""] ?? niveles["nitida"]!
 //   grande = 1280×800 puntos en una tablet de 2560×1600 · medio = 1600×1000 · maximo = 2560×1600 (letra pequeña)
 let espacio = op["espacio"] ?? "grande"
 // desplazar con dos dedos: cuánto se mueve por cada punto del dedo, y si va al revés
-let factorDesplazar = (["lenta": 0.35, "normal": 0.6, "rapida": 1.0][op["desplazar"] ?? "normal"] ?? 0.6) * (op["invertir"] == "si" ? -1 : 1)
+// (la tablet ya acelera: despacio = poco, rápido = mucho; aquí solo el nivel general)
+let factorDesplazar = (["lenta": 0.5, "normal": 0.8, "rapida": 1.2][op["desplazar"] ?? "normal"] ?? 0.8) * (op["invertir"] == "si" ? -1 : 1)
 var fps = 60
 // con «nítida» y «máxima» manda el tamaño; con «fluida» y «equilibrada», los 60 cuadros por segundo
 let preferencia = (op["calidad"] == "fluida" || op["calidad"] == "media") ? "fluidez" : "nitidez"
@@ -142,6 +146,34 @@ func mandar(_ tipo: UInt8, _ datos: Data) {
     })
 }
 
+// el sonido va aparte del video: no cuenta para saltar cuadros, y si se atrasa se tira (mejor un hueco que eco)
+var bocinas = false
+var sonidoPendiente = 0
+func mandarSonido(_ pcm: Data) {
+    guard let c = tablet, sonidoPendiente < 6 else { return }
+    sonidoPendiente += 1
+    c.send(content: paquete(4, pcm), completion: .contentProcessed { _ in cola.async { sonidoPendiente -= 1 } })
+}
+let microfono = Microfono()
+func aviso(_ texto: String) {
+    guard let c = tablet, let j = try? JSONSerialization.data(withJSONObject: ["aviso": texto]) else { return }
+    c.send(content: paquete(5, j), completion: .contentProcessed { _ in })
+}
+// la tablet pide bocinas y micrófono (al conectar y cada vez que cambia un interruptor)
+func opciones(_ j: [String: Any]) {
+    let quiereBocinas = j["altavoz"] as? Bool ?? false
+    if quiereBocinas != bocinas { bocinas = quiereBocinas; silenciarMac(quiereBocinas) }
+    if j["mic"] as? Bool ?? false {
+        if !microfono.encender() {
+            aviso("Para usar este micrófono en el Mac instala BlackHole (gratis): en la Terminal del Mac, brew install blackhole-2ch. Después elige «BlackHole 2ch» como micrófono en la app del Mac.")
+        }
+    } else { microfono.apagar() }
+}
+func soltarTablet() {
+    if bocinas { bocinas = false; silenciarMac(false) }
+    microfono.apagar()
+}
+
 /* ---------- compresión H.264 por hardware ---------- */
 var sesion: VTCompressionSession?
 var ultimoPx: CVPixelBuffer?
@@ -228,6 +260,10 @@ func recomprimir() { if let px = ultimoPx { comprimir(px) } }
 /* ---------- grabar la pantalla ---------- */
 final class Grabadora: NSObject, SCStreamOutput, SCStreamDelegate {
     func stream(_ s: SCStream, didOutputSampleBuffer b: CMSampleBuffer, of tipo: SCStreamOutputType) {
+        if tipo == .audio {
+            if bocinas, let pcm = pcmTablet(b) { cola.async { mandarSonido(pcm) } }
+            return
+        }
         guard tipo == .screen, let px = b.imageBuffer else { return }
         if let info = (CMSampleBufferGetSampleAttachmentsArray(b, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]])?.first,
            let st = info[.status] as? Int, st != SCFrameStatus.complete.rawValue { return }
@@ -261,8 +297,16 @@ func empezarGrabacion(intento: Int = 0) {
         c.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange  // lo que come VideoToolbox sin convertir
         c.showsCursor = true
         c.queueDepth = 5
+        // el sonido del Mac, para las bocinas de la tablet (solo se manda si la tablet lo pide)
+        c.capturesAudio = true
+        c.sampleRate = 48000
+        c.channelCount = 2
+        c.excludesCurrentProcessAudio = true
         let s = SCStream(filter: SCContentFilter(display: pantalla, excludingWindows: []), configuration: c, delegate: grabadora)
-        do { try s.addStreamOutput(grabadora, type: .screen, sampleHandlerQueue: DispatchQueue(label: "cuadros")) } catch { morir("\(error)") }
+        do {
+            try s.addStreamOutput(grabadora, type: .screen, sampleHandlerQueue: DispatchQueue(label: "cuadros"))
+            try s.addStreamOutput(grabadora, type: .audio, sampleHandlerQueue: DispatchQueue(label: "sonido"))
+        } catch { morir("\(error)") }
         s.startCapture { e in
             if let e = e { morir("No pude grabar la pantalla: \(e.localizedDescription)", "permiso_pantalla") }
             stream = s
@@ -308,6 +352,9 @@ func evento(_ j: [String: Any]) {
     case "m": raton(abajo ? .leftMouseDragged : .mouseMoved)
     case "u": abajo = false; raton(.leftMouseUp)
     case "r": raton(.mouseMoved); raton(.rightMouseDown, .right); raton(.rightMouseUp, .right)
+    case "texto": teclear(j["s"] as? String ?? "")
+    case "tecla": tecla(j["k"] as? Int ?? -1, j["m"] as? String ?? "")
+    case "zoom": tecla((j["dir"] as? Int ?? 1) > 0 ? 24 : 27, "cmd")  // ⌘= y ⌘-
     case "s":
         raton(.mouseMoved)
         // se acumulan los restos para que los movimientos lentos no se pierdan al redondear
@@ -318,6 +365,35 @@ func evento(_ j: [String: Any]) {
         if dy == 0 && dx == 0 { return }
         CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)?.post(tap: .cghidEventTap)
     default: break
+    }
+}
+
+// texto tal cual (acentos, emojis, dictado): se manda como texto Unicode, sin pasar por la distribución del teclado
+func teclear(_ s: String) {
+    let u = Array(s.utf16)
+    var i = 0
+    while i < u.count {
+        let parte = Array(u[i..<min(i + 16, u.count)])
+        for abajo in [true, false] {
+            let e = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: abajo)
+            e?.keyboardSetUnicodeString(stringLength: parte.count, unicodeString: parte)
+            e?.post(tap: .cghidEventTap)
+        }
+        i += 16
+    }
+}
+// una tecla del Mac por su código (36 Enter, 51 borrar, 48 Tab, 53 Esc, 123–126 flechas…) con modificadores
+func tecla(_ k: Int, _ mods: String) {
+    guard k >= 0 else { return }
+    var f: CGEventFlags = []
+    if mods.contains("cmd") { f.insert(.maskCommand) }
+    if mods.contains("shift") { f.insert(.maskShift) }
+    if mods.contains("ctrl") { f.insert(.maskControl) }
+    if mods.contains("alt") { f.insert(.maskAlternate) }
+    for abajo in [true, false] {
+        let e = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(k), keyDown: abajo)
+        e?.flags = f
+        e?.post(tap: .cghidEventTap)
     }
 }
 
@@ -358,11 +434,16 @@ servidor.newConnectionHandler = { c in
         func seguir() {
             leerPaquete(c) { tipo, datos in
                 if tipo == 10, let j = try? JSONSerialization.jsonObject(with: datos) as? [String: Any] { DispatchQueue.main.async { evento(j) } }
+                if tipo == 12, tablet === c { microfono.sonar(datos) }
+                if tipo == 13, tablet === c, let j = try? JSONSerialization.jsonObject(with: datos) as? [String: Any] { opciones(j) }
                 if tipo == 11 {
                     let n = (String(data: datos, encoding: .utf8) ?? "").split(separator: " ").compactMap { Int($0) }
                     if n.count == 3 { ajustar(n[0], n[1], n[2]) }
-                    if tablet !== c { tablet?.cancel() }
+                    if tablet !== c { tablet?.cancel(); soltarTablet() }
                     tablet = c
+                    c.stateUpdateHandler = { st in
+                        switch st { case .failed, .cancelled: cola.async { if tablet === c { tablet = nil; soltarTablet() } } default: break }
+                    }
                     pendientes = 0
                     pedirClave = true
                     recomprimir()
@@ -376,10 +457,15 @@ servidor.newConnectionHandler = { c in
 servidor.start(queue: cola)
 
 /* ---------- arrancar y quedarse vivo hasta que la app lo cierre ---------- */
-signal(SIGTERM) { _ in exit(0) }
-signal(SIGINT) { _ in exit(0) }
+// al salir, el Mac vuelve a sonar como estaba
+signal(SIGTERM) { _ in silenciarMac(false); exit(0) }
+signal(SIGINT) { _ in silenciarMac(false); exit(0) }
 // si la app que lo abrió se cierra de golpe, stdin se cierra y este proceso también
-FileHandle.standardInput.readabilityHandler = { h in if h.availableData.isEmpty { exit(0) } }
+FileHandle.standardInput.readabilityHandler = { h in if h.availableData.isEmpty { silenciarMac(false); exit(0) } }
+// el Mac no se duerme ni apaga la pantalla mientras la tablet la está usando (se suelta solo al salir)
+var despierto = IOPMAssertionID(0)
+IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                            "ScreenMT: segunda pantalla encendida" as CFString, &despierto)
 empezarGrabacion()
 NSApplication.shared.setActivationPolicy(.prohibited)
 NSApplication.shared.run()
