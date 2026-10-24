@@ -87,7 +87,6 @@ public class Principal extends Activity {
     private SharedPreferences pref;
     // ajustes de la barra: un dedo desplaza (como el celular) o arrastra (como el ratón), bocinas y micrófono
     private boolean modoToque = true, altavoz = false, mic = false;
-    private Button bModo, bAltavoz, bMic;
     private static final int PERMISO_MIC = 2;
 
     @Override
@@ -573,69 +572,82 @@ public class Principal extends Activity {
     }
 
     /* ---------------- barra de ayudas ----------------
-     * Flota encima de la pantalla del Mac. La franja de arriba sirve para moverla (se recuerda dónde
-     * quedó) y para contraerla: contraída queda solo la franja, para que no estorbe. Solo texto.
+     * Un botón redondo flotante (ícono «i»): se arrastra para moverlo (se recuerda dónde quedó) y se toca
+     * para abrir o cerrar la columna de íconos. Íconos de trazo en vector (res/drawable/ic_*.xml), sin texto.
      */
 
-    private TextView bContraer;
+    private android.widget.ImageButton bAyuda;
+    private android.widget.ImageButton iModo, iAltavoz, iMic;
 
     private void armarPanel(float dp) {
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable f = new GradientDrawable();
-        f.setColor(0xEB181B21);
-        f.setCornerRadius(14 * dp);
-        f.setStroke((int) Math.max(1, dp), 0x33FFFFFF);
-        panel.setBackground(f);
-        panel.setElevation(10 * dp);
+        panel.setGravity(Gravity.CENTER_HORIZONTAL);
 
-        // franja de arriba: arrastrar para mover, tocar «Ocultar» / «Abrir» para contraer
-        LinearLayout franja = new LinearLayout(this);
-        franja.setOrientation(LinearLayout.HORIZONTAL);
-        franja.setGravity(Gravity.CENTER_VERTICAL);
-        franja.setPadding((int) (12 * dp), 0, (int) (4 * dp), 0);
-        TextView agarre = texto("Ayudas", 12, 0xFFA7ADB8, true);
-        franja.addView(agarre, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        bContraer = texto("Ocultar", 12, 0xFF7AA2FF, true);
-        bContraer.setPadding((int) (10 * dp), (int) (10 * dp), (int) (10 * dp), (int) (10 * dp));
-        bContraer.setOnClickListener(v -> contraer(botonesPanel.getVisibility() == View.VISIBLE));
-        franja.addView(bContraer);
-        franja.setOnTouchListener(new View.OnTouchListener() {
-            float dx, dy;
+        bAyuda = new android.widget.ImageButton(this);
+        bAyuda.setImageResource(R.drawable.ic_ayuda);
+        bAyuda.setContentDescription("Ayudas");
+        bAyuda.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+        GradientDrawable fb = new GradientDrawable();
+        fb.setShape(GradientDrawable.OVAL);
+        fb.setColor(0xF02F5BD3);
+        fb.setStroke((int) Math.max(1, 1.5f * dp), 0x55FFFFFF);
+        bAyuda.setBackground(fb);
+        bAyuda.setElevation(10 * dp);
+        bAyuda.setPadding((int) (16 * dp), (int) (16 * dp), (int) (16 * dp), (int) (16 * dp));
+        // arrastrar = mover; tocar sin mover = abrir o cerrar
+        bAyuda.setOnTouchListener(new View.OnTouchListener() {
+            float dx, dy, x0, y0;
+            boolean movio;
             public boolean onTouch(View v, MotionEvent e) {
                 switch (e.getActionMasked()) {
-                    case MotionEvent.ACTION_DOWN: dx = panel.getX() - e.getRawX(); dy = panel.getY() - e.getRawY(); return true;
-                    case MotionEvent.ACTION_MOVE: moverPanel(e.getRawX() + dx, e.getRawY() + dy); return true;
+                    case MotionEvent.ACTION_DOWN:
+                        dx = panel.getX() - e.getRawX(); dy = panel.getY() - e.getRawY();
+                        x0 = e.getRawX(); y0 = e.getRawY(); movio = false;
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        if (Math.hypot(e.getRawX() - x0, e.getRawY() - y0) > 8 * dp) movio = true;
+                        if (movio) moverPanel(e.getRawX() + dx, e.getRawY() + dy);
+                        return true;
                     case MotionEvent.ACTION_UP:
-                        pref.edit().putFloat("panelX", panel.getX() / raiz.getWidth()).putFloat("panelY", panel.getY() / raiz.getHeight()).apply();
+                        if (movio) pref.edit().putFloat("panelX", panel.getX() / raiz.getWidth()).putFloat("panelY", panel.getY() / raiz.getHeight()).apply();
+                        else contraer(botonesPanel.getVisibility() == View.VISIBLE);
                         return true;
                     default: return false;
                 }
             }
         });
-        panel.addView(franja, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (40 * dp)));
+        panel.addView(bAyuda, new LinearLayout.LayoutParams((int) (60 * dp), (int) (60 * dp)));
 
         botonesPanel = new LinearLayout(this);
         botonesPanel.setOrientation(LinearLayout.VERTICAL);
-        botonesPanel.setPadding((int) (6 * dp), 0, (int) (6 * dp), (int) (6 * dp));
-        botonesPanel.addView(ayuda("Teclado", v -> { if (teclado.visible()) teclado.ocultar(); else teclado.mostrar(); }, dp));
-        bModo = ayuda("", v -> { modoToque = !modoToque; pref.edit().putBoolean("modoToque", modoToque).apply(); pintarPanel(); }, dp);
-        botonesPanel.addView(bModo);
-        botonesPanel.addView(ayuda("Cambiar de app", v -> tecla(48, "cmd"), dp));
-        botonesPanel.addView(ayuda("Ver ventanas", v -> tecla(126, "ctrl"), dp));
-        botonesPanel.addView(ayuda("Copiar", v -> tecla(8, "cmd"), dp));
-        botonesPanel.addView(ayuda("Pegar", v -> tecla(9, "cmd"), dp));
-        botonesPanel.addView(ayuda("Deshacer", v -> tecla(6, "cmd"), dp));
-        bAltavoz = ayuda("", v -> cambiarAltavoz(), dp);
-        botonesPanel.addView(bAltavoz);
-        bMic = ayuda("", v -> cambiarMic(), dp);
-        botonesPanel.addView(bMic);
-        botonesPanel.addView(ayuda("Salir", v -> finish(), dp));
-        panel.addView(botonesPanel);
+        botonesPanel.setPadding((int) (6 * dp), (int) (6 * dp), (int) (6 * dp), (int) (6 * dp));
+        GradientDrawable f = new GradientDrawable();
+        f.setColor(0xEB181B21);
+        f.setCornerRadius(16 * dp);
+        f.setStroke((int) Math.max(1, dp), 0x26FFFFFF);
+        botonesPanel.setBackground(f);
+        botonesPanel.setElevation(8 * dp);
+        botonesPanel.addView(icono(R.drawable.ic_teclado, "Teclado", v -> { if (teclado.visible()) teclado.ocultar(); else teclado.mostrar(); }, dp));
+        iModo = icono(R.drawable.ic_dedo, "Modo de toque", v -> { modoToque = !modoToque; pref.edit().putBoolean("modoToque", modoToque).apply(); pintarPanel(); }, dp);
+        botonesPanel.addView(iModo);
+        botonesPanel.addView(icono(R.drawable.ic_apps, "Cambiar de app", v -> tecla(48, "cmd"), dp));
+        botonesPanel.addView(icono(R.drawable.ic_ventanas, "Ver ventanas", v -> tecla(126, "ctrl"), dp));
+        botonesPanel.addView(icono(R.drawable.ic_copiar, "Copiar", v -> tecla(8, "cmd"), dp));
+        botonesPanel.addView(icono(R.drawable.ic_pegar, "Pegar", v -> tecla(9, "cmd"), dp));
+        botonesPanel.addView(icono(R.drawable.ic_deshacer, "Deshacer", v -> tecla(6, "cmd"), dp));
+        iAltavoz = icono(R.drawable.ic_bocinas_no, "Bocinas", v -> cambiarAltavoz(), dp);
+        botonesPanel.addView(iAltavoz);
+        iMic = icono(R.drawable.ic_mic_no, "Micrófono", v -> cambiarMic(), dp);
+        botonesPanel.addView(iMic);
+        botonesPanel.addView(icono(R.drawable.ic_salir, "Salir", v -> finish(), dp));
+        LinearLayout.LayoutParams lb = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lb.topMargin = (int) (8 * dp);
+        panel.addView(botonesPanel, lb);
 
         panel.setVisibility(View.GONE);
-        raiz.addView(panel, new FrameLayout.LayoutParams((int) (168 * dp), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START));
-        contraer(pref.getBoolean("panelContraido", false));
+        raiz.addView(panel, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START));
+        contraer(pref.getBoolean("panelContraido", true));
         pintarPanel();
     }
 
@@ -654,38 +666,35 @@ public class Principal extends Activity {
 
     private void contraer(boolean si) {
         botonesPanel.setVisibility(si ? View.GONE : View.VISIBLE);
-        bContraer.setText(si ? "Abrir" : "Ocultar");
         pref.edit().putBoolean("panelContraido", si).apply();
         // al abrir crece hacia abajo: que no se salga
         panel.post(() -> moverPanel(panel.getX(), panel.getY()));
     }
 
-    private Button ayuda(String nombre, View.OnClickListener l, float dp) {
-        Button b = new Button(this);
-        b.setAllCaps(false);
-        b.setTextColor(Color.WHITE);
-        b.setTextSize(14);
-        b.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-        b.setPadding((int) (12 * dp), 0, (int) (8 * dp), 0);
-        b.setText(nombre);
+    private android.widget.ImageButton icono(int img, String nombre, View.OnClickListener l, float dp) {
+        android.widget.ImageButton b = new android.widget.ImageButton(this);
+        b.setImageResource(img);
+        b.setContentDescription(nombre);
+        b.setScaleType(android.widget.ImageView.ScaleType.CENTER);
         GradientDrawable g = new GradientDrawable();
-        g.setCornerRadius(9 * dp);
-        g.setColor(0xFF262A32);
+        g.setCornerRadius(12 * dp);
+        g.setColor(0x00000000);
         b.setBackground(g);
         b.setOnClickListener(l);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (42 * dp));
-        lp.topMargin = (int) (5 * dp);
+        if (Build.VERSION.SDK_INT >= 26) b.setTooltipText(nombre); // al mantener presionado dice qué hace
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int) (48 * dp), (int) (48 * dp));
+        lp.topMargin = (int) (2 * dp);
         b.setLayoutParams(lp);
         return b;
     }
 
     private void pintarPanel() {
-        if (bModo == null) return;
-        bModo.setText(modoToque ? "Modo: un dedo" : "Modo: ratón");
-        bAltavoz.setText(altavoz ? "Bocinas: sí" : "Bocinas: no");
-        bMic.setText(mic ? "Micrófono: sí" : "Micrófono: no");
-        ((GradientDrawable) bAltavoz.getBackground()).setColor(altavoz ? 0xFF2F5BD3 : 0xFF262A32);
-        ((GradientDrawable) bMic.getBackground()).setColor(mic ? 0xFF2F5BD3 : 0xFF262A32);
+        if (iModo == null) return;
+        iModo.setImageResource(modoToque ? R.drawable.ic_dedo : R.drawable.ic_raton);
+        iAltavoz.setImageResource(altavoz ? R.drawable.ic_bocinas : R.drawable.ic_bocinas_no);
+        iMic.setImageResource(mic ? R.drawable.ic_mic : R.drawable.ic_mic_no);
+        ((GradientDrawable) iAltavoz.getBackground()).setColor(altavoz ? 0xFF2F5BD3 : 0x00000000);
+        ((GradientDrawable) iMic.getBackground()).setColor(mic ? 0xFF2F5BD3 : 0x00000000);
     }
 
     private void cambiarAltavoz() {
