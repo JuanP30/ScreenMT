@@ -87,6 +87,10 @@ public class Principal extends Activity {
     private SharedPreferences pref;
     // ajustes de la barra: un dedo desplaza (como el celular) o arrastra (como el ratón), bocinas y micrófono
     private boolean modoToque = true, altavoz = false, mic = false;
+    // ajustes del toque (botón de deslizadores en la barra): se aplican al momento
+    private float sensibilidad = 1f;      // 0,2 … 2
+    private boolean inerciaSi = true, invertir = false;
+    private int sostenerMs = 450;         // cuánto dejar el dedo quieto para empezar a arrastrar
     private static final int PERMISO_MIC = 2;
 
     @Override
@@ -98,6 +102,10 @@ public class Principal extends Activity {
         modoToque = pref.getBoolean("modoToque", true);
         altavoz = pref.getBoolean("altavoz", false);
         mic = pref.getBoolean("mic", false) && tienePermisoMic();
+        sensibilidad = pref.getFloat("sensibilidad", 1f);
+        inerciaSi = pref.getBoolean("inercia", true);
+        invertir = pref.getBoolean("invertir", false);
+        sostenerMs = pref.getInt("sostenerMs", 450);
         armarVista();
         leerDestino(getIntent());
         conexion = new Thread(this::conectarSiempre, "conexion");
@@ -418,7 +426,7 @@ public class Principal extends Activity {
         float dp = getResources().getDisplayMetrics().density;
         float dx = dxPx / dp, dy = dyPx / dp;
         float v = (float) Math.hypot(dx, dy) / Math.max(1, dtMs);
-        float g = Math.max(0.3f, Math.min(1.6f, 0.3f + 0.45f * v));
+        float g = Math.max(0.3f, Math.min(1.6f, 0.3f + 0.45f * v)) * sensibilidad * (invertir ? -1 : 1);
         toque("s", x, y, dx * g, dy * g);
     }
 
@@ -433,12 +441,13 @@ public class Principal extends Activity {
         }
     };
     private void lanzar(float x, float y) {
-        if (vt == null) return;
+        if (vt == null || !inerciaSi) return;
         float dp = getResources().getDisplayMetrics().density;
         vt.computeCurrentVelocity(1000);
         float vx = vt.getXVelocity() / dp, vy = vt.getYVelocity() / dp;
         if (Math.hypot(vx, vy) < 500) return;  // solo si soltaste con ganas
-        ivx = vx * 0.6f; ivy = vy * 0.6f; ix = x; iy = y;
+        float s = 0.6f * sensibilidad * (invertir ? -1 : 1);
+        ivx = vx * s; ivy = vy * s; ix = x; iy = y;
         ui.postDelayed(inercia, 16);
     }
 
@@ -453,7 +462,7 @@ public class Principal extends Activity {
                 vt.addMovement(e);
                 x0 = x; y0 = y; ux = e.getX(); uy = e.getY(); ut = e.getEventTime();
                 gesto = ESPERANDO;
-                if (modoToque) ui.postDelayed(sostener, 450);
+                if (modoToque) ui.postDelayed(sostener, sostenerMs);
                 else {
                     // se espera un instante para saber si llega un segundo dedo antes de apretar el botón
                     ui.postDelayed(arranque, 130);
@@ -690,6 +699,7 @@ public class Principal extends Activity {
         botonesPanel.addView(iAltavoz);
         iMic = icono(R.drawable.ic_mic_no, "Micrófono", v -> cambiarMic(), dp);
         botonesPanel.addView(iMic);
+        botonesPanel.addView(icono(R.drawable.ic_ajustes, "Ajustes del toque", v -> mostrarAjustes(), dp));
         botonesPanel.addView(icono(R.drawable.ic_salir, "Salir", v -> finish(), dp));
         LinearLayout.LayoutParams lb = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lb.topMargin = (int) (8 * dp);
@@ -745,6 +755,106 @@ public class Principal extends Activity {
         iMic.setImageResource(mic ? R.drawable.ic_mic : R.drawable.ic_mic_no);
         ((GradientDrawable) iAltavoz.getBackground()).setColor(altavoz ? 0xFF2F5BD3 : 0x00000000);
         ((GradientDrawable) iMic.getBackground()).setColor(mic ? 0xFF2F5BD3 : 0x00000000);
+    }
+
+    /* ---------------- ajustes del toque (ventanita encima de la pantalla) ---------------- */
+
+    private View ajustes;
+
+    private void mostrarAjustes() {
+        if (ajustes != null) { raiz.removeView(ajustes); ajustes = null; return; }
+        float dp = getResources().getDisplayMetrics().density;
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setPadding((int) (24 * dp), (int) (20 * dp), (int) (24 * dp), (int) (20 * dp));
+        GradientDrawable f = new GradientDrawable();
+        f.setColor(0xF2181B21);
+        f.setCornerRadius(18 * dp);
+        f.setStroke((int) Math.max(1, dp), 0x26FFFFFF);
+        c.setBackground(f);
+        c.setElevation(16 * dp);
+        c.setClickable(true); // que los toques no pasen al Mac
+
+        c.addView(texto("Ajustes del toque", 20, Color.WHITE, true));
+
+        TextView vSens = texto("", 15, 0xFFE6E8EC, false);
+        c.addView(fila(vSens, dp));
+        c.addView(deslizador(20, 200, Math.round(sensibilidad * 100), n -> {
+            sensibilidad = n / 100f;
+            vSens.setText("Sensibilidad al desplazar: " + n + " %");
+            pref.edit().putFloat("sensibilidad", sensibilidad).apply();
+        }));
+
+        TextView vSost = texto("", 15, 0xFFE6E8EC, false);
+        c.addView(fila(vSost, dp));
+        c.addView(deslizador(250, 900, sostenerMs, n -> {
+            sostenerMs = n;
+            vSost.setText("Dedo quieto para arrastrar: " + String.format(Locale.US, "%.1f", n / 1000f).replace('.', ',') + " s");
+            pref.edit().putInt("sostenerMs", n).apply();
+        }));
+
+        c.addView(interruptor("Inercia al soltar rápido", inerciaSi, si -> { inerciaSi = si; pref.edit().putBoolean("inercia", si).apply(); }, dp));
+        c.addView(interruptor("Invertir la dirección", invertir, si -> { invertir = si; pref.edit().putBoolean("invertir", si).apply(); }, dp));
+
+        Button listo = boton("Listo", true, v -> mostrarAjustes());
+        c.addView(listo);
+
+        ajustes = c;
+        raiz.addView(c, new FrameLayout.LayoutParams((int) (420 * dp), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+    }
+
+    private interface AlCambiar { void con(int n); }
+    private interface AlTocarSi { void con(boolean si); }
+
+    private View fila(TextView t, float dp) {
+        t.setPadding(0, (int) (18 * dp), 0, (int) (4 * dp));
+        return t;
+    }
+
+    private android.widget.SeekBar deslizador(int min, int max, int actual, AlCambiar l) {
+        android.widget.SeekBar b = new android.widget.SeekBar(this);
+        b.setMax(max - min);
+        b.setProgressTintList(android.content.res.ColorStateList.valueOf(0xFF3567E8));
+        b.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF3A3F48));
+        b.setThumbTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+        b.setProgress(Math.max(0, Math.min(max - min, actual - min)));
+        b.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(android.widget.SeekBar s, int p, boolean u) { l.con(p + min); }
+            public void onStartTrackingTouch(android.widget.SeekBar s) { }
+            public void onStopTrackingTouch(android.widget.SeekBar s) { }
+        });
+        l.con(b.getProgress() + min); // pinta el texto inicial
+        return b;
+    }
+
+    // interruptor propio (el de Android, con el tema de la app, sale como texto diminuto): fila que se toca entera
+    private View interruptor(String nombre, boolean actual, AlTocarSi l, float dp) {
+        LinearLayout f = new LinearLayout(this);
+        f.setOrientation(LinearLayout.HORIZONTAL);
+        f.setGravity(Gravity.CENTER_VERTICAL);
+        f.setPadding(0, (int) (16 * dp), 0, (int) (4 * dp));
+        TextView t = texto(nombre, 15, 0xFFE6E8EC, false);
+        f.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        FrameLayout riel = new FrameLayout(this);
+        GradientDrawable gr = new GradientDrawable();
+        gr.setCornerRadius(14 * dp);
+        riel.setBackground(gr);
+        View bola = new View(this);
+        GradientDrawable gb = new GradientDrawable();
+        gb.setShape(GradientDrawable.OVAL);
+        gb.setColor(Color.WHITE);
+        bola.setBackground(gb);
+        int a = (int) (22 * dp);
+        riel.addView(bola, new FrameLayout.LayoutParams(a, a, Gravity.CENTER_VERTICAL));
+        f.addView(riel, new LinearLayout.LayoutParams((int) (48 * dp), (int) (28 * dp)));
+        boolean[] on = {actual};
+        Runnable pintar = () -> {
+            gr.setColor(on[0] ? 0xFF3567E8 : 0xFF3A3F48);
+            bola.animate().translationX(on[0] ? 23 * dp : 3 * dp).setDuration(150).start();
+        };
+        pintar.run();
+        f.setOnClickListener(v -> { on[0] = !on[0]; pintar.run(); l.con(on[0]); });
+        return f;
     }
 
     private void cambiarAltavoz() {
@@ -823,6 +933,7 @@ public class Principal extends Activity {
     private void mostrarInicio() {
         video.setVisibility(View.GONE);
         panel.setVisibility(View.GONE);
+        if (ajustes != null) { raiz.removeView(ajustes); ajustes = null; }
         if (teclado.visible()) teclado.ocultar();
         inicio.setVisibility(View.VISIBLE);
         // lo que dejó el emparejamiento por cable mientras la app esperaba

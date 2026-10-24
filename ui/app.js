@@ -207,10 +207,9 @@ function vPantalla() {
       maximo: 'Un punto por cada píxel: cabe mucho más, con letra pequeña.',
     }[AJ.espacio] || ''}</p>
   </div>` : ''}
-  <div class="caja ancha"><h3>Velocidad al desplazar</h3>
-    ${elige('desplazar', [['lenta', 'Lenta'], ['normal', 'Normal'], ['rapida', 'Rápida']])}
-    ${sw('invertir', 'Invertir la dirección', 'Si al subir los dedos la página baja, actívalo')}
-    <p class="explica">Además acelera solo: despacio se mueve poco y con precisión; rápido se mueve mucho.</p>
+  <div class="caja ancha"><h3>Sensibilidad del toque</h3>
+    <div class="fila"><div class="n"><b>Se ajusta en la tablet, al momento</b>
+      <small>En la barra de la tablet, el botón de deslizadores: sensibilidad al desplazar, inercia, invertir la dirección y cuánto dejar el dedo quieto para arrastrar.</small></div></div>
   </div>
   <div class="caja ancha"><h3>Bocinas y micrófono de la tablet</h3>
     <div class="fila"><div class="n"><b>Se prenden en la tablet, en la barra de la derecha (⋮)</b>
@@ -239,7 +238,7 @@ function vAjustes() {
     ${elige('ancho', [[380, 'Angosta'], [440, 'Normal'], [560, 'Ancha']])}
   </div>
   <div class="caja ancha"><h3>Acerca de</h3>
-    <div class="fila"><div class="n"><b>ScreenMT 0.6.0</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
+    <div class="fila"><div class="n"><b>ScreenMT 0.6.1</b><small>Código abierto (MIT). Usa scrcpy y adb. En la tablet solo va la app ScreenMT, para la segunda pantalla.</small></div></div>
   </div>`;
 }
 
@@ -353,7 +352,7 @@ document.addEventListener('click', async (ev) => {
   else if (a === 'pant-encender') {
     V.encendiendo = true; V.pantErr = null; pintar(false);
     try {
-      const r = await invoke('pantalla_encender', { cable: AJ.cable, extra: AJ.extra, calidad: AJ.calidad, espacio: AJ.espacio, desplazar: AJ.desplazar, invertir: AJ.invertir });
+      const r = await invoke('pantalla_encender', { cable: AJ.cable, extra: AJ.extra, calidad: AJ.calidad, espacio: AJ.espacio, desplazar: 'normal', invertir: false });
       V.pant = { activa: true, url: r.url, control: r.control };
       aviso(AJ.cable ? 'Listo: mira la tablet.' : 'Listo: abre la dirección en la tablet.');
     } catch (e) { V.pantErr = e; }

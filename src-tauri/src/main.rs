@@ -227,7 +227,7 @@ fn escuchar_archivos() {
 const PUERTO: u16 = 8730;
 // la app de la tablet (carpeta android/); subir APP_VERSION junto con versionCode para que se actualice sola
 const APP_TABLET: &str = "io.github.juanp30.screenmt";
-const APP_VERSION: u32 = 12;
+const APP_VERSION: u32 = 14;
 
 fn recurso(nombre: &str) -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("../Resources").join(nombre))).unwrap_or_default()
