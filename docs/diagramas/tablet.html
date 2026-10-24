@@ -1,0 +1,48 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="estilo.css">
+<style>
+body{padding:30px;display:grid;place-items:center;background:#fff}
+.tab{width:960px;height:600px;border-radius:38px;background:#111;padding:22px;box-shadow:0 24px 60px rgba(20,26,40,.28)}
+.pan{width:100%;height:100%;border-radius:14px;overflow:hidden;position:relative;
+  background:radial-gradient(1200px 600px at 20% 10%,#3d6fe8 0%,#1b2a55 55%,#0e1530 100%)}
+.menu{height:26px;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);display:flex;gap:18px;align-items:center;padding:0 14px;color:#fff;font-size:13px;font-weight:600}
+.menu span:first-child{font-size:15px}.menu .der{margin-left:auto;font-weight:500}
+.ven{position:absolute;left:70px;top:70px;width:520px;height:380px;background:#f6f7f9;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.35);overflow:hidden}
+.ven .bar{height:34px;background:#e9ebef;display:flex;align-items:center;gap:7px;padding:0 12px}
+.ven .bar i{width:11px;height:11px;border-radius:50%;display:block}
+.ven .bar b{margin-left:12px;font-size:13px;color:#3a3f48}
+.ven .lin{height:10px;border-radius:5px;background:#d9dde3;margin:16px 22px 0}
+.ven .lin.t{height:16px;width:46%;background:#c3c9d2;margin-top:22px}
+.ven2{position:absolute;left:380px;top:180px;width:360px;height:250px;background:#fff;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.ven2 .bar{height:34px;background:#eef0f3;border-radius:12px 12px 0 0}
+.ven2 .blq{margin:16px;height:150px;border-radius:10px;background:linear-gradient(135deg,#e8eefc,#d6e0fb)}
+.dock{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:10px;padding:8px 12px;border-radius:16px;background:rgba(255,255,255,.22)}
+.dock i{width:34px;height:34px;border-radius:9px;display:block;background:rgba(255,255,255,.75)}
+.ayuda{position:absolute;right:26px;top:50px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.ayuda .i{width:52px;height:52px;border-radius:50%;background:#2f5bd3;border:2px solid rgba(255,255,255,.4);display:grid;place-items:center}
+.ayuda .col{background:rgba(24,27,33,.92);border-radius:14px;padding:6px;display:flex;flex-direction:column;gap:2px}
+.ayuda svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ayuda .col span{width:40px;height:38px;display:grid;place-items:center;border-radius:10px}
+.ayuda .col span.on{background:#2f5bd3}
+.pie{margin-top:18px;color:#5f6775;font-size:15px;text-align:center}
+</style>
+<div class="tab"><div class="pan">
+  <div class="menu"><span></span><span>Finder</span><span>Archivo</span><span>Edición</span><span>Ver</span><span>Ventana</span><span>Ayuda</span><span class="der">10:30</span></div>
+  <div class="ven"><div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><b>Notas</b></div>
+    <div class="lin t"></div><div class="lin"></div><div class="lin" style="width:80%"></div><div class="lin" style="width:90%"></div><div class="lin" style="width:60%"></div>
+    <div class="lin t"></div><div class="lin"></div><div class="lin" style="width:70%"></div></div>
+  <div class="ven2"><div class="bar"></div><div class="blq"></div></div>
+  <div class="dock"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="ayuda">
+    <div class="i"><svg viewBox="0 0 24 24"><path d="M12,2a10,10 0 1 0 0.01,0z M12,16v-5 M12,8h0.01"/></svg></div>
+    <div class="col">
+      <span><svg viewBox="0 0 24 24"><path d="M4,5h16a2,2 0 0 1 2,2v10a2,2 0 0 1 -2,2h-16a2,2 0 0 1 -2,-2v-10a2,2 0 0 1 2,-2z M6,9h0.01 M10,9h0.01 M14,9h0.01 M18,9h0.01 M6,13h0.01 M18,13h0.01 M9,13h6"/></svg></span>
+      <span><svg viewBox="0 0 24 24"><path d="M12,3v18 M8,7l4,-4l4,4 M8,17l4,4l4,-4"/></svg></span>
+      <span><svg viewBox="0 0 24 24"><path d="M17,3l4,4l-4,4 M21,7h-12 M7,21l-4,-4l4,-4 M3,17h12"/></svg></span>
+      <span><svg viewBox="0 0 24 24"><path d="M10,8h10a2,2 0 0 1 2,2v10a2,2 0 0 1 -2,2h-10a2,2 0 0 1 -2,-2v-10a2,2 0 0 1 2,-2z M4,16a2,2 0 0 1 -2,-2v-10a2,2 0 0 1 2,-2h10a2,2 0 0 1 2,2"/></svg></span>
+      <span><svg viewBox="0 0 24 24"><path d="M9,14l-5,-5l5,-5 M4,9h10.5a5.5,5.5 0 0 1 0,11h-3.5"/></svg></span>
+      <span class="on"><svg viewBox="0 0 24 24"><path d="M11,5l-5,4h-4v6h4l5,4z M15.5,8.5a5,5 0 0 1 0,7 M19,5a10,10 0 0 1 0,14"/></svg></span>
+      <span><svg viewBox="0 0 24 24"><path d="M18,6l-12,12 M6,6l12,12"/></svg></span>
+    </div>
+  </div>
+</div></div>
+<p class="pie">La tablet como pantalla extra del Mac, con la barra de ayudas abierta (ilustración)</p>

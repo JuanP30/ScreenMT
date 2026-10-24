@@ -137,7 +137,7 @@ Toca **«Encender segunda pantalla»**.
 - **Por cable:** ScreenMT **instala la app ScreenMT en la tablet** si hace falta y la **abre sola** a pantalla completa.
 - **Por wifi:** aparece un **código QR**. Si la cámara de la tablet no lo enfoca, toca **«Mostrar el código grande»** y ocupa todo el monitor. Escanéalo con la **cámara de la tablet** y se abre la app ScreenMT, ya conectada a tu Mac. La app tiene que estar instalada: instálala una vez por cable desde *Ajustes*, o descarga `ScreenMT-tablet.apk` de la página de versiones.
 
-<p align="center"><img src="img/tablet-pantalla-extra.png" width="560" alt="La tablet como pantalla extra del Mac"></p>
+<p align="center"><img src="img/tablet-segunda-pantalla.png" width="560" alt="La tablet como pantalla extra del Mac"></p>
 
 ### Por wifi sin escanear cada vez
 La tablet se **empareja una sola vez** con tu Mac y desde ahí se conecta sola:
@@ -150,6 +150,10 @@ Si quieres que ninguna tablet pueda volver a conectarse sin emparejarse de nuevo
 
 ### Cable o wifi en la app de la tablet
 Arriba en la app ScreenMT de la tablet hay dos botones: **«Por cable»** y **«Por wifi»**. Cada uno espera al Mac por su lado y la app recuerda el último wifi que escaneaste. Si el Mac la abre por cable, se pasa sola a *Por cable*.
+
+### Barra de ayudas
+
+<p align="center"><img src="img/barra-ayudas.png" width="560" alt="Qué hace cada ícono de la barra de ayudas"></p>
 
 ### Manejar el Mac tocando la tablet
 | En la tablet | En el Mac |

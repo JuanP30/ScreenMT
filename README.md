@@ -9,7 +9,7 @@ Maneja la tablet desde el Mac, pasa archivos en las dos direcciones y usa la tab
 
 <p align="center">
   <img src="docs/img/tablet-inicio.png" width="355" alt="App ScreenMT en la tablet">
-  <img src="docs/img/tablet-pantalla-extra.png" width="355" alt="La tablet como pantalla extra del Mac">
+  <img src="docs/img/tablet-segunda-pantalla.png" width="460" alt="La tablet como pantalla extra del Mac, con la barra de ayudas">
 </p>
 
 <p align="center">
@@ -33,8 +33,11 @@ Maneja la tablet desde el Mac, pasa archivos en las dos direcciones y usa la tab
 | **Archivos, Mac → tablet** | Arrastras archivos a ScreenMT y llegan a *Descargas* de la tablet. Un `.apk` arrastrado a la ventana de la tablet se instala. |
 | **Archivos, tablet → Mac** | Desde el Mac: ves la lista de lo que hay en la tablet (descargas, documentos, fotos, capturas, videos), marcas y lo traes. Desde la tablet: en la app ScreenMT, *Enviar archivos al Mac*. |
 | **Segunda pantalla** | La tablet se vuelve una **pantalla extra** del Mac, a la que arrastras ventanas, o una **copia** de tu pantalla. Va como video H.264 por hardware a la app ScreenMT de la tablet, a pantalla completa: sin navegador y con muy poca latencia. Eliges la calidad (cuatro niveles) y el tamaño de lo que ves; se ajusta solo al máximo que aguanta tu tablet. |
-| **Tocar la tablet maneja el Mac** | En la segunda pantalla: tocar es un clic, arrastrar el dedo arrastra, dejar el dedo quieto es un clic derecho y dos dedos desplazan. |
-| **Por cable o por wifi** | Por cable es lo más rápido y no depende de la red. Por wifi se conecta escaneando un código QR. |
+| **Tocar la tablet maneja el Mac** | Modo «un dedo», como el celular: deslizar desplaza (con inercia), tocar es clic, dejar el dedo quieto y mover arrastra, dos dedos es clic derecho y pellizcar acerca o aleja. También hay modo «ratón». |
+| **Teclado y dictado** | El teclado de la tablet escribe en el Mac, también dictando con la voz, con una barra de teclas del Mac (Esc, Tab, flechas, copiar, pegar…). |
+| **Barra de ayudas** | Un botón flotante que mueves a donde quieras: teclado, modo de toque, cambiar de app, ventanas, copiar, pegar, deshacer, bocinas, micrófono. |
+| **Bocinas y micrófono de la tablet** | El sonido del Mac puede salir por la tablet, y el micrófono de la tablet puede usarse en el Mac (con BlackHole, gratuito). |
+| **Por cable o por wifi** | Por cable es lo más rápido y no depende de la red. Por wifi, la tablet se empareja una vez (por cable o con un código QR) y después encuentra al Mac sola. |
 | **Una ventana a tu medida** | Abre en 4:3 y se acomoda en dos columnas. También puede quedar angosta y pegarse al borde izquierdo o derecho del monitor, ideal para monitores ultrawide. Recuerda dónde la dejaste. |
 
 Sin cuentas, sin nube y sin anuncios. Todo pasa entre tu Mac y tu tablet.
