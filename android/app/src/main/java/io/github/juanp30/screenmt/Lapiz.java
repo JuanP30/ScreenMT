@@ -27,7 +27,8 @@ final class Lapiz {
     interface Dedos { void con(MotionEvent e); }
 
     // ajustes (Principal los guarda en las preferencias)
-    float maxPuntaMm = 9f;     // contactos más grandes que esto = palma
+    // medido en una Samsung Tab A11+: punta 0,8 mm, dedo 1–1,4 mm, palma empieza en 1–2,5 mm y crece hasta 30 mm
+    float maxPuntaMm = 1.6f;   // contactos más grandes que esto = palma
     float suavizado = 0.5f;    // 0 = nada … 1 = mucho
     boolean presion = true;
 
@@ -42,6 +43,8 @@ final class Lapiz {
     private int pluma = -1;                       // id del contacto que dibuja
     private boolean enviado;                      // ya se mandó "pd"
     private boolean conDedos;                     // se pasó el gesto a «dos dedos»
+    private boolean mano;                         // la palma llegó como «dos dedos»: se ignora todo hasta soltar
+    private boolean vioTamano;                    // un 0 suelto no quiere decir que la tablet no informe el tamaño
     private final Set<Integer> ignorados = new HashSet<>();
     private float ax, ay, sx, sy, px, py, pres;   // inicio, suavizado, último crudo, presión actual
     private long t0, tu;
@@ -58,7 +61,8 @@ final class Lapiz {
 
     private float tamanoMm(MotionEvent e, int i) {
         float m = e.getTouchMajor(i);
-        if (m <= 0) { sinTamano = true; return 0; }
+        if (m <= 0) { if (!vioTamano) sinTamano = true; return 0; }
+        vioTamano = true;
         sinTamano = false;
         return m * mmPorPx;
     }
@@ -66,7 +70,25 @@ final class Lapiz {
     void alTocar(MotionEvent e, float ancho, float alto) {
         w = ancho; h = alto;
         int a = e.getActionMasked();
+        if (mano) {
+            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) reiniciar();
+            return;
+        }
         if (conDedos) {
+            // la palma se apoya en varios pedazos pequeños a la vez y parece «dos dedos»: si uno crece, se corta
+            for (int k = 0; k < e.getPointerCount(); k++) {
+                float mm = tamanoMm(e, k);
+                if (mm > maxPuntaMm * 1.4f) {
+                    ultimaPalmaMm = mm;
+                    MotionEvent c = MotionEvent.obtain(e);
+                    c.setAction(MotionEvent.ACTION_CANCEL);
+                    dedos.con(c);
+                    c.recycle();
+                    mano = true;
+                    if (a == MotionEvent.ACTION_UP) reiniciar();
+                    return;
+                }
+            }
             dedos.con(e);
             if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) reiniciar();
             return;
@@ -177,6 +199,7 @@ final class Lapiz {
         pluma = -1;
         enviado = false;
         conDedos = false;
+        mano = false;
         ignorados.clear();
     }
 }

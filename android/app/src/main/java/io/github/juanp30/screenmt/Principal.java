@@ -113,7 +113,7 @@ public class Principal extends Activity {
         sostenerMs = pref.getInt("sostenerMs", 450);
         modoLapiz = pref.getBoolean("modoLapiz", false);
         lapiz = new Lapiz(this::trazo, ev -> gestos(video, ev), getResources().getDisplayMetrics().xdpi);
-        lapiz.maxPuntaMm = pref.getFloat("lapizPunta", 9f);
+        lapiz.maxPuntaMm = pref.getFloat("lapizPuntaMm", 1.6f); // clave nueva: el 9 de antes era demasiado
         lapiz.suavizado = pref.getFloat("lapizSuave", 0.5f);
         lapiz.presion = pref.getBoolean("lapizPresion", true);
         armarVista();
@@ -540,6 +540,8 @@ public class Principal extends Activity {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 ui.removeCallbacks(arranque); ui.removeCallbacks(largo); ui.removeCallbacks(sostener);
+                // cancelado (la palma, en modo lápiz): sin clic ni inercia; solo se suelta lo que se arrastraba
+                if (e.getActionMasked() == MotionEvent.ACTION_CANCEL) { if (gesto == ARRASTRANDO) toque("u", x, y, 0, 0); gesto = NADA; break; }
                 if (gesto == ESPERANDO) { toque("d", x0, y0, 0, 0); toque("u", x0, y0, 0, 0); }
                 else if (gesto == ARRASTRANDO) toque("u", x, y, 0, 0);
                 else if (gesto == DESPLAZANDO) lanzar(x, y);
@@ -842,10 +844,10 @@ public class Principal extends Activity {
         };
         TextView vPunta = texto("", 15, 0xFFE6E8EC, false);
         c.addView(fila(vPunta, dp));
-        c.addView(deslizador(4, 25, Math.round(lapiz.maxPuntaMm), n -> {
-            lapiz.maxPuntaMm = n;
-            vPunta.setText("Más grande que " + n + " mm = palma (se ignora)");
-            pref.edit().putFloat("lapizPunta", n).apply();
+        c.addView(deslizador(5, 40, Math.round(lapiz.maxPuntaMm * 10), n -> {
+            lapiz.maxPuntaMm = n / 10f;
+            vPunta.setText("Más grande que " + mm(n / 10f) + " = palma (se ignora)");
+            pref.edit().putFloat("lapizPuntaMm", n / 10f).apply();
         }));
         TextView vSuave = texto("", 15, 0xFFE6E8EC, false);
         c.addView(fila(vSuave, dp));
