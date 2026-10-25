@@ -358,6 +358,7 @@ func evento(_ j: [String: Any]) {
     case "texto": teclear(j["s"] as? String ?? "")
     case "tecla": tecla(j["k"] as? Int ?? -1, j["m"] as? String ?? "")
     case "zoom": tecla((j["dir"] as? Int ?? 1) > 0 ? 24 : 27, "cmd")  // ⌘= y ⌘-
+    case "pd", "pm", "pu", "pc": lapiz(t, p, j["p"] as? Double ?? 1)
     case "s":
         raton(.mouseMoved)
         // se acumulan los restos para que los movimientos lentos no se pierdan al redondear
@@ -372,6 +373,39 @@ func evento(_ j: [String: Any]) {
         ev?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
         ev?.post(tap: .cghidEventTap)
     default: break
+    }
+}
+
+/* ---------- modo lápiz: la tablet como tableta gráfica ----------
+ * La tablet manda el trazo ya limpio (sin palma, suavizado y con presión simulada: Lapiz.java).
+ * Aquí sale como un lápiz de tableta gráfica: un evento de «proximidad» al apoyar y al levantar, y clics
+ * del ratón marcados como punto de tableta con su presión. Las apps de dibujo (Photoshop, Affinity, Krita,
+ * Xournal++…) leen la presión; las demás lo ven como un ratón normal. «pc» = la palma cortó el trazo. */
+let idLapiz: Int64 = 0x5C4D // cualquier número fijo: une la proximidad con los puntos
+func proximidad(_ entra: Bool) {
+    guard let e = CGEvent(source: nil) else { return }
+    e.type = .tabletProximity
+    e.setIntegerValueField(.tabletProximityEventEnterProximity, value: entra ? 1 : 0)
+    e.setIntegerValueField(.tabletProximityEventPointerType, value: 1)          // 1 = lápiz (no borrador ni cursor)
+    e.setIntegerValueField(.tabletProximityEventDeviceID, value: idLapiz)
+    e.setIntegerValueField(.tabletProximityEventSystemTabletID, value: idLapiz)
+    e.setIntegerValueField(.tabletProximityEventCapabilityMask, value: 0x0001 | 0x0002 | 0x0004 | 0x0400) // id, x, y, presión
+    e.post(tap: .cghidEventTap)
+}
+func lapiz(_ t: String, _ p: CGPoint, _ presion: Double) {
+    func punto(_ tipo: CGEventType, _ pr: Double) {
+        guard let e = CGEvent(mouseEventSource: nil, mouseType: tipo, mouseCursorPosition: p, mouseButton: .left) else { return }
+        e.setIntegerValueField(.mouseEventSubtype, value: Int64(CGEventMouseSubtype.tabletPoint.rawValue))
+        e.setIntegerValueField(.tabletEventDeviceID, value: idLapiz)
+        e.setDoubleValueField(.mouseEventPressure, value: pr)
+        e.setDoubleValueField(.tabletEventPointPressure, value: pr)
+        e.post(tap: .cghidEventTap)
+    }
+    let pr = max(0.05, min(1, presion))
+    switch t {
+    case "pd": proximidad(true); abajo = true; punto(.leftMouseDown, pr)
+    case "pm": punto(abajo ? .leftMouseDragged : .mouseMoved, pr)
+    default:   abajo = false; punto(.leftMouseUp, 0); proximidad(false)   // "pu" y "pc"
     }
 }
 

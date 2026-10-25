@@ -91,6 +91,10 @@ public class Principal extends Activity {
     private float sensibilidad = 2f;      // 1,5 … 6
     private boolean inerciaSi = true, invertir = false;
     private int sostenerMs = 450;         // cuánto dejar el dedo quieto para empezar a arrastrar
+    // modo lápiz (botón del lápiz en la barra): dibujar con un lápiz pasivo, con rechazo de palma (Lapiz.java)
+    private boolean modoLapiz = false;
+    private Lapiz lapiz;
+    private android.widget.ImageButton iLapiz;
     private static final int PERMISO_MIC = 2;
 
     @Override
@@ -107,6 +111,11 @@ public class Principal extends Activity {
         inerciaSi = pref.getBoolean("inercia", true);
         invertir = pref.getBoolean("invertir", false);
         sostenerMs = pref.getInt("sostenerMs", 450);
+        modoLapiz = pref.getBoolean("modoLapiz", false);
+        lapiz = new Lapiz(this::trazo, ev -> gestos(video, ev), getResources().getDisplayMetrics().xdpi);
+        lapiz.maxPuntaMm = pref.getFloat("lapizPunta", 9f);
+        lapiz.suavizado = pref.getFloat("lapizSuave", 0.5f);
+        lapiz.presion = pref.getBoolean("lapizPresion", true);
         armarVista();
         leerDestino(getIntent());
         conexion = new Thread(this::conectarSiempre, "conexion");
@@ -362,6 +371,12 @@ public class Principal extends Activity {
         mandar(10, j.getBytes(StandardCharsets.UTF_8));
     }
 
+    // trazo del lápiz: el Mac lo convierte en eventos de tableta gráfica con presión
+    private void trazo(String t, float x, float y, float p) {
+        String j = String.format(Locale.US, "{\"t\":\"%s\",\"x\":%.5f,\"y\":%.5f,\"p\":%.3f}", t, x, y, p);
+        mandar(10, j.getBytes(StandardCharsets.UTF_8));
+    }
+
     private void mandarOpciones() {
         mandar(13, ("{\"altavoz\":" + altavoz + ",\"mic\":" + mic + "}").getBytes(StandardCharsets.UTF_8));
     }
@@ -453,6 +468,11 @@ public class Principal extends Activity {
     }
 
     private boolean alTocar(View v, MotionEvent e) {
+        if (modoLapiz) { lapiz.alTocar(e, v.getWidth(), v.getHeight()); return true; }
+        return gestos(v, e);
+    }
+
+    private boolean gestos(View v, MotionEvent e) {
         float w = v.getWidth(), h = v.getHeight(), dp = getResources().getDisplayMetrics().density;
         float x = e.getX() / w, y = e.getY() / h;
         switch (e.getActionMasked()) {
@@ -691,6 +711,14 @@ public class Principal extends Activity {
         botonesPanel.addView(icono(R.drawable.ic_teclado, "Teclado", v -> { if (teclado.visible()) teclado.ocultar(); else teclado.mostrar(); }, dp));
         iModo = icono(R.drawable.ic_dedo, "Modo de toque", v -> { modoToque = !modoToque; pref.edit().putBoolean("modoToque", modoToque).apply(); pintarPanel(); }, dp);
         botonesPanel.addView(iModo);
+        iLapiz = icono(R.drawable.ic_lapiz, "Modo lápiz", v -> {
+            modoLapiz = !modoLapiz;
+            pref.edit().putBoolean("modoLapiz", modoLapiz).apply();
+            pintarPanel();
+            Toast.makeText(this, modoLapiz ? "Modo lápiz: dibuja con un dedo o lápiz; la palma se ignora. Dos dedos desplazan."
+                    : "Modo lápiz apagado", Toast.LENGTH_SHORT).show();
+        }, dp);
+        botonesPanel.addView(iLapiz);
         botonesPanel.addView(icono(R.drawable.ic_apps, "Cambiar de app", v -> tecla(48, "cmd"), dp));
         botonesPanel.addView(icono(R.drawable.ic_ventanas, "Ver ventanas", v -> tecla(126, "ctrl"), dp));
         botonesPanel.addView(icono(R.drawable.ic_copiar, "Copiar", v -> tecla(8, "cmd"), dp));
@@ -755,6 +783,7 @@ public class Principal extends Activity {
         iAltavoz.setImageResource(altavoz ? R.drawable.ic_bocinas : R.drawable.ic_bocinas_no);
         iMic.setImageResource(mic ? R.drawable.ic_mic : R.drawable.ic_mic_no);
         ((GradientDrawable) iAltavoz.getBackground()).setColor(altavoz ? 0xFF2F5BD3 : 0x00000000);
+        ((GradientDrawable) iLapiz.getBackground()).setColor(modoLapiz ? 0xFF2F5BD3 : 0x00000000);
         ((GradientDrawable) iMic.getBackground()).setColor(mic ? 0xFF2F5BD3 : 0x00000000);
     }
 
@@ -797,12 +826,50 @@ public class Principal extends Activity {
         c.addView(interruptor("Inercia al soltar rápido", inerciaSi, si -> { inerciaSi = si; pref.edit().putBoolean("inercia", si).apply(); }, dp));
         c.addView(interruptor("Invertir la dirección", invertir, si -> { invertir = si; pref.edit().putBoolean("invertir", si).apply(); }, dp));
 
+        // lápiz: el tamaño límite se calibra mirando lo que mide la punta y la palma de cada uno
+        TextView tLapiz = texto("Lápiz", 17, Color.WHITE, true);
+        tLapiz.setPadding(0, (int) (22 * dp), 0, 0);
+        c.addView(tLapiz);
+        TextView vMedida = texto("", 13, 0xFF9AA3B2, false);
+        c.addView(vMedida);
+        Runnable medir = new Runnable() {
+            public void run() {
+                if (ajustes == null) return;
+                if (lapiz.sinTamano) vMedida.setText("Esta tablet no dice el tamaño de los toques: el rechazo de palma no puede funcionar.");
+                else vMedida.setText("Toca con el lápiz y apoya la mano: última punta " + mm(lapiz.ultimaPuntaMm) + " · última palma " + mm(lapiz.ultimaPalmaMm));
+                ui.postDelayed(this, 400);
+            }
+        };
+        TextView vPunta = texto("", 15, 0xFFE6E8EC, false);
+        c.addView(fila(vPunta, dp));
+        c.addView(deslizador(4, 25, Math.round(lapiz.maxPuntaMm), n -> {
+            lapiz.maxPuntaMm = n;
+            vPunta.setText("Más grande que " + n + " mm = palma (se ignora)");
+            pref.edit().putFloat("lapizPunta", n).apply();
+        }));
+        TextView vSuave = texto("", 15, 0xFFE6E8EC, false);
+        c.addView(fila(vSuave, dp));
+        c.addView(deslizador(0, 100, Math.round(lapiz.suavizado * 100), n -> {
+            lapiz.suavizado = n / 100f;
+            vSuave.setText("Suavizar el trazo: " + n + " %");
+            pref.edit().putFloat("lapizSuave", n / 100f).apply();
+        }));
+        c.addView(interruptor("Presión según la velocidad", lapiz.presion, si -> { lapiz.presion = si; pref.edit().putBoolean("lapizPresion", si).apply(); }, dp));
+
         Button listo = boton("Listo", true, v -> mostrarAjustes());
+        ui.postDelayed(medir, 50);
         c.addView(listo);
 
-        ajustes = c;
-        raiz.addView(c, new FrameLayout.LayoutParams((int) (420 * dp), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        // con la sección del lápiz ya no cabe siempre: se desplaza si la pantalla es baja
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.setClipToPadding(false);
+        sv.setPadding(0, (int) (16 * dp), 0, (int) (16 * dp));
+        sv.addView(c);
+        ajustes = sv;
+        raiz.addView(sv, new FrameLayout.LayoutParams((int) (420 * dp), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
     }
+
+    private static String mm(float v) { return v < 0 ? "—" : String.format(Locale.US, "%.1f mm", v).replace('.', ','); }
 
     private interface AlCambiar { void con(int n); }
     private interface AlTocarSi { void con(boolean si); }
