@@ -42,7 +42,10 @@
     ],
     "macOS": {
       "minimumSystemVersion": "13.0",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "files": {
+        "Resources/Assets.car": "icons/Assets.car"
+      }
     },
     "externalBin": [
       "binaries/screenmt-pantalla"
